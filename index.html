@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>小台指 ROD 回測報表</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6faf8;
+      --panel: #ffffff;
+      --ink: #1d2823;
+      --muted: #65736d;
+      --line: #dce7e1;
+      --accent: #2f668a;
+      --accent-soft: #eaf3f8;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Microsoft JhengHei", Arial, sans-serif;
+      font-size: 18px;
+      line-height: 1.6;
+    }
+
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+
+    h1 {
+      font-size: 34px;
+      line-height: 1.25;
+      margin: 0 0 12px;
+    }
+
+    p {
+      color: var(--muted);
+      margin: 0 0 18px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px;
+      margin-top: 22px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    a.button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 0 16px;
+      border-radius: 6px;
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 800;
+    }
+
+    a.secondary {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 12px;
+      background: #fbfdfc;
+    }
+
+    .label {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .value {
+      font-size: 20px;
+      font-weight: 800;
+      margin-top: 4px;
+    }
+
+    code {
+      background: #edf5f1;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: Consolas, monospace;
+      font-size: 0.92em;
+    }
+
+    @media (max-width: 820px) {
+      body { font-size: 16px; }
+      h1 { font-size: 28px; }
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>小台指 1 分 K ROD 回踩回測報表</h1>
+  <p>這是本專案的網頁入口。最新報表為 A01~A08 第 0 層 Body x OpenGap，總共 3,528 組，已扣出場滑點 2 點、來回手續費 36 元與期交稅。</p>
+
+  <section class="panel">
+    <h2>最新可視化報表</h2>
+    <p>報表內含分層總表、條列總表、年度 2020~2026 欄位、排序與篩選功能。</p>
+    <div class="actions">
+      <a class="button" href="report_outputs/anchor_body_gap_bins_3528/anchor_body_gap_bins_report.html">開啟 3,528 組 HTML 報表</a>
+      <a class="button secondary" href="report_outputs/anchor_body_gap_bins_3528/summary_anchor_body_gap_bins.csv">下載 Summary CSV</a>
+      <a class="button secondary" href="report_outputs/anchor_body_gap_bins_3528/by_year_anchor_body_gap_bins.csv">下載 By Year CSV</a>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>目前策略公式簡碼</h2>
+    <p>做多：<code>B=C1-O1 in 前K實體區間; O>=A+Gap下限; O<=A+Gap上限; L<=A-1</code></p>
+    <p>做空：<code>B=O1-C1 in 前K實體區間; O<=A-Gap下限; O>=A-Gap上限; H>=A+1</code></p>
+    <div class="grid">
+      <div class="metric"><div class="label">Anchor</div><div class="value">8 種</div></div>
+      <div class="metric"><div class="label">前K實體</div><div class="value">21 組</div></div>
+      <div class="metric"><div class="label">OpenGap</div><div class="value">21 組</div></div>
+      <div class="metric"><div class="label">總組合</div><div class="value">3,528 組</div></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>本機執行</h2>
+    <p>雙擊根目錄的 <code>run.bat</code> 會直接開啟最新 HTML 報表。若要重跑報表，可在專案根目錄執行：</p>
+    <p><code>python mtx_research/run_anchor_body_bins.py --data FIMTX_M1_202001020845.txt --outdir report_outputs/anchor_body_gap_bins_3528</code></p>
+  </section>
+</main>
+</body>
+</html>

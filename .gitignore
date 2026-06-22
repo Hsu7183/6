@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+.pytest_cache/
+*.pyc
+
+# Local raw data and generated heavy outputs
+FIMTX_M1_202001020845.txt
+data/*
+!data/.gitkeep
+outputs/*
+!outputs/.gitkeep
+
+# Keep only the current web report bundle under report_outputs.
+report_outputs/*
+!report_outputs/anchor_body_gap_bins_3528/
+!report_outputs/anchor_body_gap_bins_3528/anchor_body_gap_bins_report.html
+!report_outputs/anchor_body_gap_bins_3528/summary_anchor_body_gap_bins.csv
+!report_outputs/anchor_body_gap_bins_3528/by_year_anchor_body_gap_bins.csv
+
+# Older generated report folders are local artifacts.
+rod_yearly_report/
+rod_yearly_report.html
+
+# OS/editor noise
+Thumbs.db
+.DS_Store

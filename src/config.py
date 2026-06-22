@@ -1,0 +1,31 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+
+BEGIN_TIME = "09:05"
+END_TIME = "13:10"
+EXIT_TIME_LIMIT = "13:12"
+
+MIN_TRADES = 300
+TOP_N = 500
+YEARLY_TOP_N = 200
+TOP_TRADE_LOG_N = 20
+
+CAPITAL_TWD = 250_000
+POINT_VALUE_TWD = 50
+ENTRY_SLIPPAGE_POINTS = 0
+EXIT_SLIPPAGE_POINTS = 2
+FEE_PER_SIDE_TWD = 18
+TRANSACTION_TAX_RATE = 0.00002
+
+OPEN_GAP_MIN_LIST = list(range(2, 401, 10))
+OPEN_GAP_MAX_LIST = list(range(3, 401, 10))
+PULLBACK_DEPTH_LIST = list(range(1, 11, 1))
+BODY_MIN_LIST = list(range(1, 401, 10))
+
+EXPECTED_PARAM_COUNT = 328_000
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = PROJECT_ROOT / "data"
+OUTPUT_DIR = PROJECT_ROOT / "outputs"
