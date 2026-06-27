@@ -10,7 +10,7 @@ import pandas as pd
 from .config import CostConfig
 from .data_loader import load_ohlcv
 from .metrics import costed_points, profit_factor, safe_divide
-from .xs_anchor_rod import XSParams, _anchor_values, _prepare_samples
+from .xs_anchor_rod import XSParams, _anchor_values, _int_anchor_values, _prepare_samples
 
 
 STRATEGY_ID = "A01_A08_BODY_GAP_BIN_ROD_P1"
@@ -204,31 +204,48 @@ def scan(
 
     shape = (len(ANCHOR_MODES), len(BODY_BINS), len(GAP_BINS))
     stats = BodyGapStats(shape, years)
-    last_entry_order = np.full(shape, -10_000_000, dtype=np.int32)
+    last_entry_raw_index = np.full(shape, -10_000_000, dtype=np.int32)
+    pending_raw_index = np.full(shape, -1, dtype=np.int32)
 
     for order, row in enumerate(samples.itertuples(index=False)):
         year_index = year_to_index[int(row.Year)]
-        long_anchors, short_anchors = _anchor_values(row)
+        raw_index = int(row.EntryRawIndex)
+        raw_long_anchors, raw_short_anchors = _anchor_values(row)
+        int_long_anchors, int_short_anchors = _int_anchor_values(raw_long_anchors, raw_short_anchors, params)
+
+        pending_expired = (pending_raw_index >= 0) & (raw_index > pending_raw_index)
+        cancel_block = pending_expired & (raw_index == pending_raw_index + 1)
+        if pending_expired.any():
+            pending_raw_index[pending_expired] = -1
 
         long_body_bins = _single_bin_mask(float(row.C1 - row.O1), BODY_BINS)
         short_body_bins = _single_bin_mask(float(row.O1 - row.C1), BODY_BINS)
-        long_gap_bins = _gap_bin_mask(float(row.O0) - long_anchors)
-        short_gap_bins = _gap_bin_mask(short_anchors - float(row.O0))
+        long_gap_bins = _gap_bin_mask(float(row.O0) - raw_long_anchors)
+        short_gap_bins = _gap_bin_mask(raw_short_anchors - float(row.O0))
 
         long_trigger = long_body_bins[None, :, None] & long_gap_bins[:, None, :]
         short_trigger = short_body_bins[None, :, None] & short_gap_bins[:, None, :]
-        can_enter = last_entry_order < order - 1
-        stats.add_trigger((long_trigger | short_trigger) & can_enter)
+        both_trigger = long_trigger & short_trigger
+        if both_trigger.any():
+            long_trigger[both_trigger] = False
+            short_trigger[both_trigger] = False
+
+        can_enter = (
+            (last_entry_raw_index < raw_index - 1)
+            & (pending_raw_index < 0)
+            & ~cancel_block
+        )
+        active_long_trigger = long_trigger & can_enter
+        active_short_trigger = short_trigger & can_enter
+        stats.add_trigger(active_long_trigger | active_short_trigger)
 
         long_fill = (
-            long_trigger
-            & ((long_anchors - float(row.L0)) >= PENETRATE)[:, None, None]
-            & can_enter
+            active_long_trigger
+            & ((int_long_anchors - float(row.L0)) >= PENETRATE)[:, None, None]
         )
         short_fill = (
-            short_trigger
-            & ((float(row.H0) - short_anchors) >= PENETRATE)[:, None, None]
-            & can_enter
+            active_short_trigger
+            & ((float(row.H0) - int_short_anchors) >= PENETRATE)[:, None, None]
         )
 
         both = long_fill & short_fill
@@ -236,10 +253,14 @@ def scan(
             long_fill[both] = False
             short_fill[both] = False
 
+        unfilled_trigger = (active_long_trigger | active_short_trigger) & ~(long_fill | short_fill)
+        if unfilled_trigger.any():
+            pending_raw_index[unfilled_trigger] = raw_index
+
         for anchor_i in range(len(ANCHOR_MODES)):
             long_mask = long_fill[anchor_i]
             if long_mask.any():
-                trade = costed_points(1, float(long_anchors[anchor_i]), float(row.NextOpen), cost)
+                trade = costed_points(1, float(int_long_anchors[anchor_i]), float(row.NextOpen), cost)
                 full = np.zeros(shape, dtype=bool)
                 full[anchor_i] = long_mask
                 stats.add_trade(
@@ -252,11 +273,12 @@ def scan(
                     slippage_twd=trade.slippage_twd,
                     year_index=year_index,
                 )
-                last_entry_order[full] = order
+                last_entry_raw_index[full] = raw_index
+                pending_raw_index[full] = -1
 
             short_mask = short_fill[anchor_i]
             if short_mask.any():
-                trade = costed_points(-1, float(short_anchors[anchor_i]), float(row.NextOpen), cost)
+                trade = costed_points(-1, float(int_short_anchors[anchor_i]), float(row.NextOpen), cost)
                 full = np.zeros(shape, dtype=bool)
                 full[anchor_i] = short_mask
                 stats.add_trade(
@@ -269,7 +291,8 @@ def scan(
                     slippage_twd=trade.slippage_twd,
                     year_index=year_index,
                 )
-                last_entry_order[full] = order
+                last_entry_raw_index[full] = raw_index
+                pending_raw_index[full] = -1
 
         if progress_every and (order + 1) % progress_every == 0:
             print(f"Anchor body-gap progress: {order + 1:,}/{len(samples):,}")

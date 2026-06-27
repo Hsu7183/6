@@ -137,9 +137,23 @@ PATTERN_SHORT_TEXT = {
 
 @dataclass(frozen=True)
 class XSParams:
-    begin_time: int = 90500
+    begin_time: int = 84800
     end_time: int = 131000
     force_exit_time: int = 131200
+    use_time1: int = 1
+    time1_begin: int = 84800
+    time1_end: int = 131000
+    time1_force: int = 131200
+    use_time2: int = 1
+    time2_begin: int = 150300
+    time2_end: int = 235500
+    time2_force: int = 235700
+    use_time3: int = 1
+    time3_begin: int = 300
+    time3_end: int = 45500
+    time3_force: int = 45700
+    use_int_px_a: int = 1
+    round_mode_a: int = 1
     mirror_short_anchor: int = 1
     range_min: float = 1
     range_max: float = 999999
@@ -284,10 +298,27 @@ def _prepare_samples(df: pd.DataFrame, params: XSParams) -> pd.DataFrame:
     work = df.sort_values("datetime").reset_index(drop=True).copy()
     prev = work.shift(1)
     nxt = work.shift(-1)
-    in_time = (work["TimeInt"] >= params.begin_time) & (work["TimeInt"] <= params.end_time)
-    in_time &= work["TimeInt"] < params.force_exit_time
+    time_int = work["TimeInt"]
+    in_time = pd.Series(False, index=work.index)
+    force_limit = pd.Series(0, index=work.index, dtype=np.int32)
+    if params.use_time1:
+        mask1 = (time_int >= params.time1_begin) & (time_int <= params.time1_end) & (time_int < params.time1_force)
+        in_time |= mask1
+        force_limit.loc[mask1] = params.time1_force
+    if params.use_time2:
+        mask2 = (time_int >= params.time2_begin) & (time_int <= params.time2_end) & (time_int < params.time2_force)
+        in_time |= mask2
+        force_limit.loc[mask2] = params.time2_force
+    if params.use_time3:
+        mask3 = (time_int >= params.time3_begin) & (time_int <= params.time3_end) & (time_int < params.time3_force)
+        in_time |= mask3
+        force_limit.loc[mask3] = params.time3_force
+    if not (params.use_time1 or params.use_time2 or params.use_time3):
+        in_time = (time_int >= params.begin_time) & (time_int <= params.end_time) & (time_int < params.force_exit_time)
+        force_limit.loc[in_time] = params.force_exit_time
     same_day = (prev["DateInt"] == work["DateInt"]) & (work["DateInt"] == nxt["DateInt"])
-    mask = in_time & same_day & nxt["Open"].notna() & nxt["TimeInt"].le(params.force_exit_time)
+    next_before_force = nxt["TimeInt"].le(force_limit)
+    mask = in_time & same_day & nxt["Open"].notna() & next_before_force
     avg_vol = work["Volume"].shift(1).rolling(params.vol_avg_len, min_periods=1).mean()
     out = pd.DataFrame(
         {
@@ -296,6 +327,9 @@ def _prepare_samples(df: pd.DataFrame, params: XSParams) -> pd.DataFrame:
             "DateTime": work.loc[mask, "datetime"].to_numpy(),
             "NextDateTime": nxt.loc[mask, "datetime"].to_numpy(),
             "Year": work.loc[mask, "Year"].to_numpy(dtype=np.int16),
+            "EntryRawIndex": work.index.to_numpy()[mask.to_numpy()],
+            "ExitRawIndex": work.index.to_numpy()[mask.to_numpy()] + 1,
+            "ForceTime": force_limit.loc[mask].to_numpy(dtype=np.int32),
             "O1": prev.loc[mask, "Open"].to_numpy(dtype=float),
             "H1": prev.loc[mask, "High"].to_numpy(dtype=float),
             "L1": prev.loc[mask, "Low"].to_numpy(dtype=float),
@@ -360,6 +394,18 @@ def _anchor_values(row: object) -> tuple[np.ndarray, np.ndarray]:
         dtype=float,
     )
     return long_values, short_values
+
+
+def _int_anchor_values(
+    long_values: np.ndarray,
+    short_values: np.ndarray,
+    params: XSParams,
+) -> tuple[np.ndarray, np.ndarray]:
+    if not params.use_int_px_a:
+        return long_values.copy(), short_values.copy()
+    if params.round_mode_a == 1:
+        return np.floor(long_values + 0.5), np.floor(short_values + 0.5)
+    return np.floor(long_values), np.floor(short_values)
 
 
 def _pattern_flags(row: object, params: XSParams) -> tuple[np.ndarray, np.ndarray]:
@@ -451,61 +497,81 @@ def scan(data_path: Path, outdir: Path, *, params: XSParams | None = None, cost:
     year_to_index = {year: i for i, year in enumerate(years)}
     shape = (len(ANCHOR_MODES), len(PATTERN_MODES), len(GAP_PAIRS), len(PENETRATE_LIST))
     stats = DenseStats(shape, years)
-    last_entry_order = np.full(shape, -10_000_000, dtype=np.int32)
+    last_entry_raw_index = np.full(shape, -10_000_000, dtype=np.int32)
+    pending_raw_index = np.full(shape, -1, dtype=np.int32)
 
     for order, row in enumerate(samples.itertuples(index=False)):
         long_patterns, short_patterns = _pattern_flags(row, params)
-        long_anchors, short_anchors = _anchor_values(row)
+        raw_long_anchors, raw_short_anchors = _anchor_values(row)
+        int_long_anchors, int_short_anchors = _int_anchor_values(raw_long_anchors, raw_short_anchors, params)
         pen_values = np.asarray(PENETRATE_LIST, dtype=float)
         year_index = year_to_index[int(row.Year)]
+        raw_index = int(row.EntryRawIndex)
 
-        long_gap = _gap_mask(float(row.O0) - long_anchors)
-        short_gap = _gap_mask(short_anchors - float(row.O0))
-        long_pen = (long_anchors - float(row.L0))[:, None] >= pen_values[None, :]
-        short_pen = (float(row.H0) - short_anchors)[:, None] >= pen_values[None, :]
-        long_signal = (
+        pending_expired = (pending_raw_index >= 0) & (raw_index > pending_raw_index)
+        cancel_block = pending_expired & (raw_index == pending_raw_index + 1)
+        if pending_expired.any():
+            pending_raw_index[pending_expired] = -1
+
+        long_gap = _gap_mask(float(row.O0) - raw_long_anchors)
+        short_gap = _gap_mask(raw_short_anchors - float(row.O0))
+        long_candidate = (
             long_patterns[None, :, None, None]
             & long_gap[:, None, :, None]
-            & long_pen[:, None, None, :]
         )
-        short_signal = (
+        short_candidate = (
             short_patterns[None, :, None, None]
             & short_gap[:, None, :, None]
-            & short_pen[:, None, None, :]
         )
         if params.side_mode == 1:
-            short_signal[:] = False
+            short_candidate[:] = False
         elif params.side_mode == -1:
-            long_signal[:] = False
-        both = long_signal & short_signal
+            long_candidate[:] = False
+        both = long_candidate & short_candidate
         if both.any():
             if params.dual_signal_mode == 0:
-                long_signal[both] = False
-                short_signal[both] = False
+                long_candidate[both] = False
+                short_candidate[both] = False
             elif params.dual_signal_mode == 1:
-                short_signal[both] = False
+                short_candidate[both] = False
             elif params.dual_signal_mode == 2:
-                long_signal[both] = False
+                long_candidate[both] = False
 
-        active_long = long_signal & (last_entry_order < order - 1)
-        active_short = short_signal & (last_entry_order < order - 1)
-        stats.add_eligible(active_long | active_short)
+        can_enter = (
+            (last_entry_raw_index < raw_index - 1)
+            & (pending_raw_index < 0)
+            & ~cancel_block
+        )
+        active_long_candidate = long_candidate & can_enter
+        active_short_candidate = short_candidate & can_enter
+        stats.add_eligible(active_long_candidate | active_short_candidate)
+
+        long_pen = (int_long_anchors - float(row.L0))[:, None] >= pen_values[None, :]
+        short_pen = (float(row.H0) - int_short_anchors)[:, None] >= pen_values[None, :]
+        active_long = active_long_candidate & long_pen[:, None, None, :]
+        active_short = active_short_candidate & short_pen[:, None, None, :]
+
+        unfilled_candidate = (active_long_candidate | active_short_candidate) & ~(active_long | active_short)
+        if unfilled_candidate.any():
+            pending_raw_index[unfilled_candidate] = raw_index
 
         for anchor_i in range(len(ANCHOR_MODES)):
             mask = active_long[anchor_i]
             if mask.any():
-                trade = costed_points(1, float(long_anchors[anchor_i]), float(row.NextOpen), cost)
+                trade = costed_points(1, float(int_long_anchors[anchor_i]), float(row.NextOpen), cost)
                 full = np.zeros(shape, dtype=bool)
                 full[anchor_i] = mask
                 stats.add_trade(full, side=1, raw_points=trade.raw_points, net_points=trade.net_points, fee_twd=trade.fee_twd, tax_twd=trade.tax_twd, slippage_twd=trade.slippage_twd, year_index=year_index)
-                last_entry_order[full] = order
+                last_entry_raw_index[full] = raw_index
+                pending_raw_index[full] = -1
             mask = active_short[anchor_i]
             if mask.any():
-                trade = costed_points(-1, float(short_anchors[anchor_i]), float(row.NextOpen), cost)
+                trade = costed_points(-1, float(int_short_anchors[anchor_i]), float(row.NextOpen), cost)
                 full = np.zeros(shape, dtype=bool)
                 full[anchor_i] = mask
                 stats.add_trade(full, side=-1, raw_points=trade.raw_points, net_points=trade.net_points, fee_twd=trade.fee_twd, tax_twd=trade.tax_twd, slippage_twd=trade.slippage_twd, year_index=year_index)
-                last_entry_order[full] = order
+                last_entry_raw_index[full] = raw_index
+                pending_raw_index[full] = -1
 
         if progress_every and (order + 1) % progress_every == 0:
             print(f"XS Anchor ROD progress: {order + 1:,}/{len(samples):,}")
