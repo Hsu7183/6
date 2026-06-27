@@ -16,7 +16,7 @@ def main() -> None:
     parser.add_argument(
         "--outdir",
         type=Path,
-        default=Path("report_outputs") / "anchor_body_gap_bins_3528",
+        default=Path("report_outputs") / "anchor_body_gap_bins_11152",
     )
     parser.add_argument("--progress-every", type=int, default=100_000)
     args = parser.parse_args()

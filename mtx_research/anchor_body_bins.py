@@ -17,17 +17,16 @@ STRATEGY_ID = "A01_A08_BODY_GAP_BIN_ROD_P1"
 ANCHOR_MODES = list(range(1, 9))
 PENETRATE = 1
 
-# 前 K 實體區間：0~20, 21~40, ... 381~400, 401以上，共 21 組。
+# 前 K 實體區間：0~10, 11~20, ... 391~400, 401以上，共 41 組。
 BODY_BINS: list[tuple[int, int | None]] = (
-    [(0, 20)]
-    + [(start, start + 19) for start in range(21, 401, 20)]
+    [(0, 10)]
+    + [(start, start + 9) for start in range(11, 401, 10)]
     + [(401, None)]
 )
 
-# OpenGap 區間：2~5, 6~10, 11~15, ... 96~100, 101以上，共 21 組。
+# OpenGap 區間：2~4, 5~7, ... 98~100, 101以上，共 34 組。
 GAP_BINS: list[tuple[int, int | None]] = (
-    [(2, 5)]
-    + [(start, start + 4) for start in range(6, 101, 5)]
+    [(start, start + 2) for start in range(2, 101, 3)]
     + [(101, None)]
 )
 
@@ -193,8 +192,8 @@ def scan(
 ) -> dict[str, Path]:
     params = params or XSParams()
     cost = cost or CostConfig()
-    if EXPECTED_COMBOS != 3_528:
-        raise RuntimeError(f"combo count {EXPECTED_COMBOS:,} != 3,528")
+    if EXPECTED_COMBOS != 11_152:
+        raise RuntimeError(f"combo count {EXPECTED_COMBOS:,} != 11,152")
 
     outdir.mkdir(parents=True, exist_ok=True)
     df, data_report = load_ohlcv(data_path)
@@ -542,7 +541,7 @@ def write_html(
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<title>A01~A08 Body x Gap 3,528 組報表</title>
+<title>A01~A08 Body x Gap 11,152 組報表</title>
 <style>
 body{{font-family:"Microsoft JhengHei",Arial,sans-serif;margin:0;background:#f7faf8;color:#1d2823;font-size:16px}}
 header{{padding:18px 10px;background:white;border-bottom:1px solid #dce7e1}}
@@ -567,7 +566,7 @@ th{{background:#dfece6;position:sticky;top:0;z-index:2}} tbody tr:nth-child(even
 </head>
 <body>
 <header>
-<h1>A01~A08 第0層 Body x OpenGap 3,528 組報表</h1>
+<h1>A01~A08 第0層 Body x OpenGap 11,152 組報表</h1>
 <div class="sub">
 {data_range}<br>
 公式簡碼：做多 B=C1-O1 in 前K實體區間；O>=A+Gap下限；O<=A+Gap上限；L<=A-1。做空鏡像 B=O1-C1；O<=A-Gap下限；O>=A-Gap上限；H>=A+1。<br>
@@ -576,8 +575,8 @@ th{{background:#dfece6;position:sticky;top:0;z-index:2}} tbody tr:nth-child(even
 <div class="cards">
 <div class="card"><div class="label">總組合</div><div class="value">{EXPECTED_COMBOS:,} 組</div></div>
 <div class="card"><div class="label">Anchor</div><div class="value">8 種</div></div>
-<div class="card"><div class="label">前K實體區間</div><div class="value">21 組</div></div>
-<div class="card"><div class="label">OpenGap區間</div><div class="value">21 組</div></div>
+<div class="card"><div class="label">前K實體區間</div><div class="value">41 組</div></div>
+<div class="card"><div class="label">OpenGap區間</div><div class="value">34 組</div></div>
 <div class="card"><div class="label">Penetrate</div><div class="value">固定 1</div></div>
 <div class="card"><div class="label">輸出</div><div class="value">{escape(str(output.parent))}</div></div>
 <div class="card"><div class="label">CSV</div><div class="value">summary / by_year</div></div>
@@ -588,9 +587,9 @@ th{{background:#dfece6;position:sticky;top:0;z-index:2}} tbody tr:nth-child(even
 <h2>分層總表：Anchor x 前K實體 x OpenGap</h2>
 <div class="sub">每個格子顯示總報酬率、成交次數、MDD、勝率。紅色為正報酬，綠色為負報酬。</div>
 {''.join(matrix_sections)}
-<h2>條列總表：3,528 組</h2>
+<h2>條列總表：11,152 組</h2>
 <div class="filters">
-<label><div class="label">搜尋</div><input id="q" placeholder="A01 / 0~20 / 2~5 / 公式"></label>
+<label><div class="label">搜尋</div><input id="q" placeholder="A01 / 0~10 / 2~4 / 公式"></label>
 <label><div class="label">最小成交</div><input id="minTrades" type="number" placeholder="不限"></label>
 <label><div class="label">最小總報酬率 %</div><input id="minRet" type="number" step="0.01" placeholder="不限"></label>
 <label><div class="label">最小 PF</div><input id="minPf" type="number" step="0.01" placeholder="不限"></label>

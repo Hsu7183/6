@@ -19,7 +19,7 @@ index.html
 最新報表位置：
 
 ```text
-report_outputs/anchor_body_gap_bins_3528/anchor_body_gap_bins_report.html
+report_outputs/anchor_body_gap_bins_11152/anchor_body_gap_bins_report.html
 ```
 
 ## 目前第 0 層測試
@@ -27,7 +27,7 @@ report_outputs/anchor_body_gap_bins_3528/anchor_body_gap_bins_report.html
 總組合：
 
 ```text
-8 種 Anchor x 21 組前 K 實體區間 x 21 組 OpenGap 區間 = 3,528 組
+8 種 Anchor x 41 組前 K 實體區間 x 34 組 OpenGap 區間 = 11,152 組
 ```
 
 做多簡碼：
@@ -72,7 +72,7 @@ FIMTX_M1_202001020845.txt
 執行：
 
 ```powershell
-python mtx_research/run_anchor_body_bins.py --data FIMTX_M1_202001020845.txt --outdir report_outputs/anchor_body_gap_bins_3528
+python mtx_research/run_anchor_body_bins.py --data FIMTX_M1_202001020845.txt --outdir report_outputs/anchor_body_gap_bins_11152
 ```
 
 ## GitHub 同步範圍
@@ -82,5 +82,5 @@ python mtx_research/run_anchor_body_bins.py --data FIMTX_M1_202001020845.txt --o
 - Python 程式
 - `index.html`
 - `run.bat`
-- 最新 3,528 組 HTML 報表
+- 最新 11,152 組 HTML 報表
 - 最新 summary / by_year CSV

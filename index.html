@@ -118,15 +118,15 @@
 <body>
 <main>
   <h1>小台指 1 分 K ROD 回踩回測報表</h1>
-  <p>這是本專案的網頁入口。最新報表為 A01~A08 第 0 層 Body x OpenGap，總共 3,528 組，已扣出場滑點 2 點、來回手續費 36 元與期交稅。</p>
+  <p>這是本專案的網頁入口。最新報表為 A01~A08 第 0 層 Body x OpenGap，總共 11,152 組，已扣出場滑點 2 點、來回手續費 36 元與期交稅。</p>
 
   <section class="panel">
     <h2>最新可視化報表</h2>
     <p>報表內含分層總表、條列總表、年度 2020~2026 欄位、排序與篩選功能。</p>
     <div class="actions">
-      <a class="button" href="report_outputs/anchor_body_gap_bins_3528/anchor_body_gap_bins_report.html">開啟 3,528 組 HTML 報表</a>
-      <a class="button secondary" href="report_outputs/anchor_body_gap_bins_3528/summary_anchor_body_gap_bins.csv">下載 Summary CSV</a>
-      <a class="button secondary" href="report_outputs/anchor_body_gap_bins_3528/by_year_anchor_body_gap_bins.csv">下載 By Year CSV</a>
+      <a class="button" href="report_outputs/anchor_body_gap_bins_11152/anchor_body_gap_bins_report.html">開啟 11,152 組 HTML 報表</a>
+      <a class="button secondary" href="report_outputs/anchor_body_gap_bins_11152/summary_anchor_body_gap_bins.csv">下載 Summary CSV</a>
+      <a class="button secondary" href="report_outputs/anchor_body_gap_bins_11152/by_year_anchor_body_gap_bins.csv">下載 By Year CSV</a>
     </div>
   </section>
 
@@ -136,16 +136,16 @@
     <p>做空：<code>B=O1-C1 in 前K實體區間; O<=A-Gap下限; O>=A-Gap上限; H>=A+1</code></p>
     <div class="grid">
       <div class="metric"><div class="label">Anchor</div><div class="value">8 種</div></div>
-      <div class="metric"><div class="label">前K實體</div><div class="value">21 組</div></div>
-      <div class="metric"><div class="label">OpenGap</div><div class="value">21 組</div></div>
-      <div class="metric"><div class="label">總組合</div><div class="value">3,528 組</div></div>
+      <div class="metric"><div class="label">前K實體</div><div class="value">41 組</div></div>
+      <div class="metric"><div class="label">OpenGap</div><div class="value">34 組</div></div>
+      <div class="metric"><div class="label">總組合</div><div class="value">11,152 組</div></div>
     </div>
   </section>
 
   <section class="panel">
     <h2>本機執行</h2>
     <p>雙擊根目錄的 <code>run.bat</code> 會直接開啟最新 HTML 報表。若要重跑報表，可在專案根目錄執行：</p>
-    <p><code>python mtx_research/run_anchor_body_bins.py --data FIMTX_M1_202001020845.txt --outdir report_outputs/anchor_body_gap_bins_3528</code></p>
+    <p><code>python mtx_research/run_anchor_body_bins.py --data FIMTX_M1_202001020845.txt --outdir report_outputs/anchor_body_gap_bins_11152</code></p>
   </section>
 </main>
 </body>
