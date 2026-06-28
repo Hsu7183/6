@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>四層策略參數矩陣入口</title>
+<style>
+body{font-family:"Microsoft JhengHei",Arial,sans-serif;margin:0;background:#f6faf8;color:#1d2823;font-size:18px}
+header{padding:22px 10px;background:#fff;border-bottom:1px solid #dbe8e2}
+main{padding:20px 8px 40px}
+h1{font-size:32px;margin:0 0 10px}
+.sub{color:#5e6f68;line-height:1.65}
+table{border-collapse:collapse;min-width:920px;background:#fff}
+th,td{border:1px solid #dfe8e3;padding:10px 12px;text-align:left}
+th{background:#dfebe5}
+a{color:#255d87;font-weight:700;text-decoration:none}
+</style>
+</head>
+<body>
+<header>
+<h1>四層策略參數矩陣入口</h1>
+<div class="sub">小台日盤、小台全日、大台日盤、大台全日。每層都有參數矩陣與勝率門檻總表。</div>
+</header>
+<main>
+<p><a href="four_layer_threshold_report.html">開啟四層合併勝率門檻總表</a></p>
+<table>
+<thead><tr><th>層次</th><th>商品</th><th>時段</th><th>參數矩陣</th><th>勝率門檻總表</th></tr></thead>
+<tbody>
+<tr><td>小台日盤</td><td>mtx</td><td>day</td><td><a href="mtx_day/anchor_body_gap_bins_report.html">參數矩陣</a></td><td><a href="mtx_day/winrate_threshold_report.html">勝率門檻總表</a></td></tr><tr><td>小台全日</td><td>mtx</td><td>all</td><td><a href="mtx_all/anchor_body_gap_bins_report.html">參數矩陣</a></td><td><a href="mtx_all/winrate_threshold_report.html">勝率門檻總表</a></td></tr><tr><td>大台日盤</td><td>tx</td><td>day</td><td><a href="tx_day/anchor_body_gap_bins_report.html">參數矩陣</a></td><td><a href="tx_day/winrate_threshold_report.html">勝率門檻總表</a></td></tr><tr><td>大台全日</td><td>tx</td><td>all</td><td><a href="tx_all/anchor_body_gap_bins_report.html">參數矩陣</a></td><td><a href="tx_all/winrate_threshold_report.html">勝率門檻總表</a></td></tr>
+</tbody>
+</table>
+</main>
+</body>
+</html>

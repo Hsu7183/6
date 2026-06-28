@@ -104,6 +104,9 @@ class BodyGapStats:
         if mask.any():
             self.triggers[mask] += 1
 
+    def add_trigger_at(self, coord: tuple[int, int, int]) -> None:
+        self.triggers[coord] += 1
+
     def add_trade(
         self,
         mask: np.ndarray,
@@ -159,6 +162,58 @@ class BodyGapStats:
         else:
             self.flats[mask] += 1
 
+    def add_trade_at(
+        self,
+        coord: tuple[int, int, int],
+        *,
+        side: int,
+        raw_points: float,
+        net_points: float,
+        fee_twd: int,
+        tax_twd: int,
+        slippage_twd: float,
+        year_index: int,
+    ) -> None:
+        self.trades[coord] += 1
+        if side == 1:
+            self.long_trades[coord] += 1
+        else:
+            self.short_trades[coord] += 1
+        self.raw_points[coord] += raw_points
+        self.net_points[coord] += net_points
+        self.fees[coord] += fee_twd
+        self.taxes[coord] += tax_twd
+        self.slippage[coord] += slippage_twd
+
+        self.equity[coord] += net_points
+        self.peak[coord] = max(self.peak[coord], self.equity[coord])
+        self.mdd[coord] = max(self.mdd[coord], self.peak[coord] - self.equity[coord])
+
+        self.year_trades[year_index][coord] += 1
+        self.year_net[year_index][coord] += net_points
+        self.year_equity[year_index][coord] += net_points
+        self.year_peak[year_index][coord] = max(
+            self.year_peak[year_index][coord],
+            self.year_equity[year_index][coord],
+        )
+        self.year_mdd[year_index][coord] = max(
+            self.year_mdd[year_index][coord],
+            self.year_peak[year_index][coord] - self.year_equity[year_index][coord],
+        )
+
+        if net_points > 0:
+            self.wins[coord] += 1
+            self.gp[coord] += net_points
+            self.year_wins[year_index][coord] += 1
+            self.year_gp[year_index][coord] += net_points
+        elif net_points < 0:
+            loss = -net_points
+            self.losses[coord] += 1
+            self.gl_abs[coord] += loss
+            self.year_gl_abs[year_index][coord] += loss
+        else:
+            self.flats[coord] += 1
+
 
 def _range_labels(bins: list[tuple[int, int | None]]) -> list[str]:
     return [f"{lo}以上" if hi is None else f"{lo}~{hi}" for lo, hi in bins]
@@ -173,6 +228,13 @@ def _single_bin_mask(value: float, bins: list[tuple[int, int | None]]) -> np.nda
     return out
 
 
+def _bin_index(value: float, bins: list[tuple[int, int | None]]) -> int:
+    for i, (lo, hi) in enumerate(bins):
+        if value >= lo and (hi is None or value <= hi):
+            return i
+    return -1
+
+
 def _gap_bin_mask(distance: np.ndarray) -> np.ndarray:
     out = np.zeros((len(distance), len(GAP_BINS)), dtype=bool)
     for i, (lo, hi) in enumerate(GAP_BINS):
@@ -180,6 +242,16 @@ def _gap_bin_mask(distance: np.ndarray) -> np.ndarray:
         if hi is not None:
             out[:, i] &= distance <= hi
     return out
+
+
+def _candidate_coords(body_bin: int, gap_bins: list[int]) -> set[tuple[int, int, int]]:
+    if body_bin < 0:
+        return set()
+    return {
+        (anchor_i, body_bin, gap_i)
+        for anchor_i, gap_i in enumerate(gap_bins)
+        if gap_i >= 0
+    }
 
 
 def scan(
@@ -217,53 +289,49 @@ def scan(
         if pending_expired.any():
             pending_raw_index[pending_expired] = -1
 
-        long_body_bins = _single_bin_mask(float(row.C1 - row.O1), BODY_BINS)
-        short_body_bins = _single_bin_mask(float(row.O1 - row.C1), BODY_BINS)
-        long_gap_bins = _gap_bin_mask(float(row.O0) - raw_long_anchors)
-        short_gap_bins = _gap_bin_mask(raw_short_anchors - float(row.O0))
+        long_body_bin = _bin_index(float(row.C1 - row.O1), BODY_BINS)
+        short_body_bin = _bin_index(float(row.O1 - row.C1), BODY_BINS)
+        long_gap_bins = [
+            _bin_index(float(row.O0) - float(anchor), GAP_BINS)
+            for anchor in raw_long_anchors
+        ]
+        short_gap_bins = [
+            _bin_index(float(anchor) - float(row.O0), GAP_BINS)
+            for anchor in raw_short_anchors
+        ]
 
-        long_trigger = long_body_bins[None, :, None] & long_gap_bins[:, None, :]
-        short_trigger = short_body_bins[None, :, None] & short_gap_bins[:, None, :]
-        both_trigger = long_trigger & short_trigger
-        if both_trigger.any():
-            long_trigger[both_trigger] = False
-            short_trigger[both_trigger] = False
+        long_triggers = _candidate_coords(long_body_bin, long_gap_bins)
+        short_triggers = _candidate_coords(short_body_bin, short_gap_bins)
+        both_triggers = long_triggers & short_triggers
+        if both_triggers:
+            long_triggers -= both_triggers
+            short_triggers -= both_triggers
 
-        can_enter = (
-            (last_entry_raw_index < raw_index - 1)
-            & (pending_raw_index < 0)
-            & ~cancel_block
-        )
-        active_long_trigger = long_trigger & can_enter
-        active_short_trigger = short_trigger & can_enter
-        stats.add_trigger(active_long_trigger | active_short_trigger)
+        active_long: list[tuple[int, int, int]] = []
+        active_short: list[tuple[int, int, int]] = []
+        for coord in sorted(long_triggers):
+            if (
+                last_entry_raw_index[coord] < raw_index - 1
+                and pending_raw_index[coord] < 0
+                and not bool(cancel_block[coord])
+            ):
+                stats.add_trigger_at(coord)
+                active_long.append(coord)
+        for coord in sorted(short_triggers):
+            if (
+                last_entry_raw_index[coord] < raw_index - 1
+                and pending_raw_index[coord] < 0
+                and not bool(cancel_block[coord])
+            ):
+                stats.add_trigger_at(coord)
+                active_short.append(coord)
 
-        long_fill = (
-            active_long_trigger
-            & ((int_long_anchors - float(row.L0)) >= PENETRATE)[:, None, None]
-        )
-        short_fill = (
-            active_short_trigger
-            & ((float(row.H0) - int_short_anchors) >= PENETRATE)[:, None, None]
-        )
-
-        both = long_fill & short_fill
-        if both.any():
-            long_fill[both] = False
-            short_fill[both] = False
-
-        unfilled_trigger = (active_long_trigger | active_short_trigger) & ~(long_fill | short_fill)
-        if unfilled_trigger.any():
-            pending_raw_index[unfilled_trigger] = raw_index
-
-        for anchor_i in range(len(ANCHOR_MODES)):
-            long_mask = long_fill[anchor_i]
-            if long_mask.any():
+        for coord in active_long:
+            anchor_i = coord[0]
+            if (float(int_long_anchors[anchor_i]) - float(row.L0)) >= PENETRATE:
                 trade = costed_points(1, float(int_long_anchors[anchor_i]), float(row.NextOpen), cost)
-                full = np.zeros(shape, dtype=bool)
-                full[anchor_i] = long_mask
-                stats.add_trade(
-                    full,
+                stats.add_trade_at(
+                    coord,
                     side=1,
                     raw_points=trade.raw_points,
                     net_points=trade.net_points,
@@ -272,16 +340,17 @@ def scan(
                     slippage_twd=trade.slippage_twd,
                     year_index=year_index,
                 )
-                last_entry_raw_index[full] = raw_index
-                pending_raw_index[full] = -1
+                last_entry_raw_index[coord] = raw_index
+                pending_raw_index[coord] = -1
+            else:
+                pending_raw_index[coord] = raw_index
 
-            short_mask = short_fill[anchor_i]
-            if short_mask.any():
+        for coord in active_short:
+            anchor_i = coord[0]
+            if (float(row.H0) - float(int_short_anchors[anchor_i])) >= PENETRATE:
                 trade = costed_points(-1, float(int_short_anchors[anchor_i]), float(row.NextOpen), cost)
-                full = np.zeros(shape, dtype=bool)
-                full[anchor_i] = short_mask
-                stats.add_trade(
-                    full,
+                stats.add_trade_at(
+                    coord,
                     side=-1,
                     raw_points=trade.raw_points,
                     net_points=trade.net_points,
@@ -290,8 +359,10 @@ def scan(
                     slippage_twd=trade.slippage_twd,
                     year_index=year_index,
                 )
-                last_entry_raw_index[full] = raw_index
-                pending_raw_index[full] = -1
+                last_entry_raw_index[coord] = raw_index
+                pending_raw_index[coord] = -1
+            else:
+                pending_raw_index[coord] = raw_index
 
         if progress_every and (order + 1) % progress_every == 0:
             print(f"Anchor body-gap progress: {order + 1:,}/{len(samples):,}")

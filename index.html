@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>小台指 ROD 回測報表</title>
+  <title>小台指 / 大台指 ROD 回測報表</title>
   <style>
     :root {
       color-scheme: light;
@@ -26,7 +26,7 @@
     }
 
     main {
-      max-width: 1120px;
+      max-width: 1180px;
       margin: 0 auto;
       padding: 40px 20px;
     }
@@ -35,6 +35,11 @@
       font-size: 34px;
       line-height: 1.25;
       margin: 0 0 12px;
+    }
+
+    h2 {
+      font-size: 25px;
+      margin: 0 0 10px;
     }
 
     p {
@@ -117,36 +122,47 @@
 </head>
 <body>
 <main>
-  <h1>小台指 1 分 K ROD 回踩回測報表</h1>
-  <p>這是本專案的網頁入口。最新報表為 A01~A08 第 0 層 Body x OpenGap，總共 11,152 組，已扣出場滑點 2 點、來回手續費 36 元與期交稅。</p>
+  <h1>小台指 / 大台指 1 分 K ROD 回踩回測報表</h1>
+  <p>目前主報表是 A01~A08 定錨、第 0 層前 K 實體區間 x OpenGap 區間矩陣，成本已扣 2 點出場滑點、來回手續費 36 元與期交稅。</p>
 
   <section class="panel">
-    <h2>最新可視化報表</h2>
-    <p>報表內含分層總表、條列總表、年度 2020~2026 欄位、排序與篩選功能。</p>
+    <h2>四層策略參數矩陣</h2>
+    <p>小台日盤、小台全日、大台日盤、大台全日各自跑完整 11,152 組矩陣，並彙總勝率 >50%、>60%、>70%、>80%、>90%、=100% 的總年與分年度績效。</p>
+    <div class="actions">
+      <a class="button" href="report_outputs/four_layer_matrix/four_layer_matrix_index.html">開啟四層矩陣入口</a>
+      <a class="button" href="report_outputs/four_layer_matrix/four_layer_threshold_report.html">開啟四層勝率門檻總表</a>
+      <a class="button secondary" href="report_outputs/four_layer_matrix/winrate_threshold_summary.csv">下載四層總年 CSV</a>
+      <a class="button secondary" href="report_outputs/four_layer_matrix/winrate_threshold_by_year.csv">下載四層分年度 CSV</a>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>原本單層報表</h2>
+    <p>保留原本的單層 11,152 組總表與勝率門檻彙總，方便和新四層報表對照。</p>
     <div class="actions">
       <a class="button" href="report_outputs/anchor_body_gap_bins_11152/anchor_body_gap_bins_report.html">開啟 11,152 組 HTML 報表</a>
-      <a class="button" href="report_outputs/anchor_body_gap_bins_11152/winrate_threshold_report.html">開啟勝率門檻彙總</a>
+      <a class="button" href="report_outputs/anchor_body_gap_bins_11152/winrate_threshold_report.html">開啟勝率門檻總表</a>
       <a class="button secondary" href="report_outputs/anchor_body_gap_bins_11152/summary_anchor_body_gap_bins.csv">下載 Summary CSV</a>
       <a class="button secondary" href="report_outputs/anchor_body_gap_bins_11152/by_year_anchor_body_gap_bins.csv">下載 By Year CSV</a>
     </div>
   </section>
 
   <section class="panel">
-    <h2>目前策略公式簡碼</h2>
-    <p>做多：<code>B=C1-O1 in 前K實體區間; O>=A+Gap下限; O<=A+Gap上限; L<=A-1</code></p>
-    <p>做空：<code>B=O1-C1 in 前K實體區間; O<=A-Gap下限; O>=A-Gap上限; H>=A+1</code></p>
+    <h2>策略公式簡碼</h2>
+    <p>做多：<code>B=C1-O1 in 前K實體區間; O&gt;=A+Gap下限; O&lt;=A+Gap上限; L&lt;=A-1; Entry=A; Exit=NextOpen</code></p>
+    <p>做空鏡像：<code>B=O1-C1 in 前K實體區間; O&lt;=A-Gap下限; O&gt;=A-Gap上限; H&gt;=A+1; Entry=A; Exit=NextOpen</code></p>
     <div class="grid">
       <div class="metric"><div class="label">Anchor</div><div class="value">8 種</div></div>
-      <div class="metric"><div class="label">前K實體</div><div class="value">41 組</div></div>
+      <div class="metric"><div class="label">前 K 實體</div><div class="value">41 組</div></div>
       <div class="metric"><div class="label">OpenGap</div><div class="value">34 組</div></div>
-      <div class="metric"><div class="label">總組合</div><div class="value">11,152 組</div></div>
+      <div class="metric"><div class="label">每層組合</div><div class="value">11,152 組</div></div>
     </div>
   </section>
 
   <section class="panel">
     <h2>本機執行</h2>
-    <p>雙擊根目錄的 <code>run.bat</code> 會直接開啟最新 HTML 報表。若要重跑報表，可在專案根目錄執行：</p>
-    <p><code>python mtx_research/run_anchor_body_bins.py --outdir report_outputs/anchor_body_gap_bins_11152</code></p>
+    <p>雙擊根目錄的 <code>run.bat</code> 會直接開啟本頁。若要重跑四層報表，可在專案根目錄執行：</p>
+    <p><code>python mtx_research/run_four_layer_matrix.py --outdir report_outputs/four_layer_matrix --progress-every 200000</code></p>
   </section>
 </main>
 </body>

@@ -36,6 +36,29 @@ python mtx_research/run_anchor_body_bins.py --outdir report_outputs/anchor_body_
 python mtx_research/run_anchor_body_bins.py --instrument tx --outdir report_outputs/anchor_body_gap_bins_11152_tx
 ```
 
+可用 `--session day` 或 `--session all` 指定日盤 / 全日：
+
+```powershell
+python mtx_research/run_anchor_body_bins.py --instrument mtx --session day --outdir report_outputs/four_layer_matrix/mtx_day
+```
+
+## 四層矩陣與門檻總表
+
+一次跑完小台日盤、小台全日、大台日盤、大台全日：
+
+```powershell
+python mtx_research/run_four_layer_matrix.py --outdir report_outputs/four_layer_matrix --progress-every 200000
+```
+
+輸出：
+
+```text
+report_outputs/four_layer_matrix/four_layer_matrix_index.html
+report_outputs/four_layer_matrix/four_layer_threshold_report.html
+report_outputs/four_layer_matrix/winrate_threshold_summary.csv
+report_outputs/four_layer_matrix/winrate_threshold_by_year.csv
+```
+
 ## XS Anchor ROD 18,816 組
 
 小台指：

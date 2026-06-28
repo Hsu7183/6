@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>大台全日 勝率門檻總表</title>
+<style>
+body{font-family:"Microsoft JhengHei",Arial,sans-serif;margin:0;background:#f6faf8;color:#1d2823;font-size:18px}
+header{padding:22px 10px;background:#fff;border-bottom:1px solid #dbe8e2}
+main{padding:0 8px 36px}
+h1{font-size:32px;margin:0 0 10px} h2{font-size:25px;margin:34px 0 10px}
+.sub{color:#5e6f68;line-height:1.65;max-width:1280px}
+.links a{display:inline-block;margin:10px 8px 0 0;padding:8px 12px;border:1px solid #c9d9d1;border-radius:5px;text-decoration:none;color:#255d87;background:#fff;font-weight:700}
+.note{background:#fff9e8;border:1px solid #ead9a3;border-radius:6px;padding:10px 12px;margin:14px 0;line-height:1.6}
+.table-wrap{overflow:auto;border:1px solid #dce7e1;background:#fff;box-shadow:0 10px 22px rgba(32,48,40,.06)}
+table{border-collapse:collapse;width:max-content;min-width:100%;font-variant-numeric:tabular-nums}
+th,td{border:1px solid #dfe8e3;padding:8px 10px;text-align:right;white-space:nowrap}
+th{background:#dfebe5;color:#1d2a25;position:sticky;top:0;z-index:1}
+td:first-child,th:first-child{text-align:left;position:sticky;left:0;background:inherit;z-index:2}
+tr:nth-child(even){background:#f3f8f5} tr:nth-child(odd){background:#fff}
+.pos{color:#bf4e3e;font-weight:700} .neg{color:#2f7d56;font-weight:700} .zero{color:#56645f}
+</style>
+</head>
+<body>
+<header>
+<h1>大台全日 勝率門檻總表</h1>
+<div class="sub">大台全日：11,152 組參數矩陣，依總年勝率篩選 &gt;50%、&gt;60%、&gt;70%、&gt;80%、&gt;90%、=100% 的策略。</div>
+<div class="links"><a href="anchor_body_gap_bins_report.html">回參數矩陣</a><a href="winrate_threshold_summary.csv">下載總年 CSV</a><a href="winrate_threshold_by_year.csv">下載分年度 CSV</a></div>
+</header>
+<main>
+<div class="note">門檻規則：50% 到 90% 使用嚴格大於；100% 使用勝率等於 100%。MDD 合計是把入選策略各自最大回撤加總，最大單策略 MDD 則是入選策略中最大的單一策略回撤。</div>
+
+<h2>總年門檻總表</h2>
+<div class="table-wrap">
+<table>
+<thead><tr>
+<th>層次</th><th>勝率門檻</th><th>策略數</th><th>總次數</th><th>整體勝率</th><th>淨點數</th><th>淨損益</th><th>總報酬率</th><th>MDD 合計</th><th>MDD 合計率</th><th>最大單策略 MDD</th><th>最大單策略 MDD 率</th><th>PF</th>
+</tr></thead>
+<tbody>
+<tr><td>大台全日</td><td>勝率 &gt; 50%</td><td>276</td><td>1,398</td><td>66.5%</td><td class="pos">21,182.7</td><td class="pos">1,059,134</td><td class="pos">423.65%</td><td>9,673.4</td><td>193.47%</td><td>561.4</td><td>11.23%</td><td>2.3</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 60%</td><td>236</td><td>645</td><td>80.5%</td><td class="pos">20,601.9</td><td class="pos">1,030,093</td><td class="pos">412.04%</td><td>3,664.7</td><td>73.29%</td><td>561.4</td><td>11.23%</td><td>5.52</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 70%</td><td>196</td><td>353</td><td>92.9%</td><td class="pos">18,057.1</td><td class="pos">902,855</td><td class="pos">361.14%</td><td>661.4</td><td>13.23%</td><td>148.3</td><td>2.97%</td><td>23.64</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 80%</td><td>186</td><td>272</td><td>98.5%</td><td class="pos">16,537.5</td><td class="pos">826,875</td><td class="pos">330.75%</td><td>101.5</td><td>2.03%</td><td>43.5</td><td>0.87%</td><td>163.9</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 90%</td><td>182</td><td>247</td><td>100.0%</td><td class="pos">15,848.9</td><td class="pos">792,443</td><td class="pos">316.98%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td><td>∞</td></tr>
+<tr><td>大台全日</td><td>勝率 = 100%</td><td>182</td><td>247</td><td>100.0%</td><td class="pos">15,848.9</td><td class="pos">792,443</td><td class="pos">316.98%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td><td>∞</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>分年度門檻總表</h2>
+<div class="table-wrap">
+<table>
+<thead><tr>
+<th>層次</th><th>勝率門檻</th><th>年度</th><th>策略數</th><th>該年有交易策略數</th><th>總次數</th><th>整體勝率</th><th>淨點數</th><th>淨損益</th><th>總報酬率</th><th>MDD 合計</th><th>MDD 合計率</th><th>最大單策略 MDD</th><th>最大單策略 MDD 率</th>
+</tr></thead>
+<tbody>
+<tr><td>大台全日</td><td>勝率 &gt; 50%</td><td>2019</td><td>276</td><td>0</td><td>0</td><td></td><td class="zero">0</td><td class="zero">0</td><td class="zero">0.00%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 50%</td><td>2020</td><td>276</td><td>5</td><td>5</td><td>80.0%</td><td class="pos">65.5</td><td class="pos">3,276</td><td class="pos">1.31%</td><td>19.1</td><td>0.38%</td><td>19.1</td><td>0.38%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 50%</td><td>2021</td><td>276</td><td>9</td><td>11</td><td>45.5%</td><td class="neg">-5.8</td><td class="neg">-291</td><td class="neg">-0.12%</td><td>160.2</td><td>3.20%</td><td>61.3</td><td>1.23%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 50%</td><td>2022</td><td>276</td><td>5</td><td>5</td><td>60.0%</td><td class="neg">-81.5</td><td class="neg">-4,074</td><td class="neg">-1.63%</td><td>114.6</td><td>2.29%</td><td>57.3</td><td>1.15%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 50%</td><td>2023</td><td>276</td><td>3</td><td>3</td><td>100.0%</td><td class="pos">151</td><td class="pos">7,552</td><td class="pos">3.02%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 50%</td><td>2024</td><td>276</td><td>32</td><td>55</td><td>63.6%</td><td class="pos">171.2</td><td class="pos">8,558</td><td class="pos">3.42%</td><td>418.6</td><td>8.37%</td><td>89.6</td><td>1.79%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 50%</td><td>2025</td><td>276</td><td>66</td><td>104</td><td>69.2%</td><td class="pos">2,804.9</td><td class="pos">140,243</td><td class="pos">56.10%</td><td>1,375.4</td><td>27.51%</td><td>145.3</td><td>2.91%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 50%</td><td>2026</td><td>276</td><td>251</td><td>1,215</td><td>66.5%</td><td class="pos">18,077.4</td><td class="pos">903,870</td><td class="pos">361.55%</td><td>8,666.5</td><td>173.33%</td><td>561.4</td><td>11.23%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 60%</td><td>2019</td><td>236</td><td>0</td><td>0</td><td></td><td class="zero">0</td><td class="zero">0</td><td class="zero">0.00%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 60%</td><td>2020</td><td>236</td><td>3</td><td>3</td><td>66.7%</td><td class="pos">19.7</td><td class="pos">984</td><td class="pos">0.39%</td><td>19.1</td><td>0.38%</td><td>19.1</td><td>0.38%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 60%</td><td>2021</td><td>236</td><td>4</td><td>4</td><td>75.0%</td><td class="pos">116.6</td><td class="pos">5,832</td><td class="pos">2.33%</td><td>0.4</td><td>0.01%</td><td>0.4</td><td>0.01%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 60%</td><td>2022</td><td>236</td><td>2</td><td>2</td><td>100.0%</td><td class="pos">32.4</td><td class="pos">1,618</td><td class="pos">0.65%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 60%</td><td>2023</td><td>236</td><td>3</td><td>3</td><td>100.0%</td><td class="pos">151</td><td class="pos">7,552</td><td class="pos">3.02%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 60%</td><td>2024</td><td>236</td><td>14</td><td>16</td><td>62.5%</td><td class="pos">14.6</td><td class="pos">730</td><td class="pos">0.29%</td><td>137.2</td><td>2.74%</td><td>48.1</td><td>0.96%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 60%</td><td>2025</td><td>236</td><td>40</td><td>45</td><td>84.4%</td><td class="pos">2,748.6</td><td class="pos">137,432</td><td class="pos">54.97%</td><td>257.3</td><td>5.15%</td><td>70.5</td><td>1.41%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 60%</td><td>2026</td><td>236</td><td>211</td><td>572</td><td>80.6%</td><td class="pos">17,518.9</td><td class="pos">875,945</td><td class="pos">350.38%</td><td>3,362.5</td><td>67.25%</td><td>561.4</td><td>11.23%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 70%</td><td>2019</td><td>196</td><td>0</td><td>0</td><td></td><td class="zero">0</td><td class="zero">0</td><td class="zero">0.00%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 70%</td><td>2020</td><td>196</td><td>0</td><td>0</td><td></td><td class="zero">0</td><td class="zero">0</td><td class="zero">0.00%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 70%</td><td>2021</td><td>196</td><td>3</td><td>3</td><td>100.0%</td><td class="pos">117</td><td class="pos">5,850</td><td class="pos">2.34%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 70%</td><td>2022</td><td>196</td><td>2</td><td>2</td><td>100.0%</td><td class="pos">32.4</td><td class="pos">1,618</td><td class="pos">0.65%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 70%</td><td>2023</td><td>196</td><td>2</td><td>2</td><td>100.0%</td><td class="pos">129.4</td><td class="pos">6,468</td><td class="pos">2.59%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 70%</td><td>2024</td><td>196</td><td>7</td><td>7</td><td>85.7%</td><td class="pos">70.3</td><td class="pos">3,516</td><td class="pos">1.41%</td><td>43.5</td><td>0.87%</td><td>43.5</td><td>0.87%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 70%</td><td>2025</td><td>196</td><td>31</td><td>36</td><td>91.7%</td><td class="pos">2,877.1</td><td class="pos">143,853</td><td class="pos">57.54%</td><td>38.4</td><td>0.77%</td><td>23.4</td><td>0.47%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 70%</td><td>2026</td><td>196</td><td>171</td><td>303</td><td>93.1%</td><td class="pos">14,831</td><td class="pos">741,550</td><td class="pos">296.62%</td><td>613.4</td><td>12.27%</td><td>148.3</td><td>2.97%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 80%</td><td>2019</td><td>186</td><td>0</td><td>0</td><td></td><td class="zero">0</td><td class="zero">0</td><td class="zero">0.00%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 80%</td><td>2020</td><td>186</td><td>0</td><td>0</td><td></td><td class="zero">0</td><td class="zero">0</td><td class="zero">0.00%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 80%</td><td>2021</td><td>186</td><td>1</td><td>1</td><td>100.0%</td><td class="pos">59.7</td><td class="pos">2,984</td><td class="pos">1.19%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 80%</td><td>2022</td><td>186</td><td>2</td><td>2</td><td>100.0%</td><td class="pos">32.4</td><td class="pos">1,618</td><td class="pos">0.65%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 80%</td><td>2023</td><td>186</td><td>2</td><td>2</td><td>100.0%</td><td class="pos">129.4</td><td class="pos">6,468</td><td class="pos">2.59%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 80%</td><td>2024</td><td>186</td><td>5</td><td>5</td><td>80.0%</td><td class="pos">18.4</td><td class="pos">920</td><td class="pos">0.37%</td><td>43.5</td><td>0.87%</td><td>43.5</td><td>0.87%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 80%</td><td>2025</td><td>186</td><td>25</td><td>27</td><td>100.0%</td><td class="pos">2,653.4</td><td class="pos">132,668</td><td class="pos">53.07%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 80%</td><td>2026</td><td>186</td><td>161</td><td>235</td><td>98.7%</td><td class="pos">13,644.3</td><td class="pos">682,217</td><td class="pos">272.89%</td><td>58</td><td>1.16%</td><td>43</td><td>0.86%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 90%</td><td>2019</td><td>182</td><td>0</td><td>0</td><td></td><td class="zero">0</td><td class="zero">0</td><td class="zero">0.00%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 90%</td><td>2020</td><td>182</td><td>0</td><td>0</td><td></td><td class="zero">0</td><td class="zero">0</td><td class="zero">0.00%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 90%</td><td>2021</td><td>182</td><td>1</td><td>1</td><td>100.0%</td><td class="pos">59.7</td><td class="pos">2,984</td><td class="pos">1.19%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 90%</td><td>2022</td><td>182</td><td>2</td><td>2</td><td>100.0%</td><td class="pos">32.4</td><td class="pos">1,618</td><td class="pos">0.65%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 90%</td><td>2023</td><td>182</td><td>2</td><td>2</td><td>100.0%</td><td class="pos">129.4</td><td class="pos">6,468</td><td class="pos">2.59%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 90%</td><td>2024</td><td>182</td><td>3</td><td>3</td><td>100.0%</td><td class="pos">43.5</td><td class="pos">2,174</td><td class="pos">0.87%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 90%</td><td>2025</td><td>182</td><td>25</td><td>27</td><td>100.0%</td><td class="pos">2,653.4</td><td class="pos">132,668</td><td class="pos">53.07%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 &gt; 90%</td><td>2026</td><td>182</td><td>157</td><td>212</td><td>100.0%</td><td class="pos">12,930.6</td><td class="pos">646,531</td><td class="pos">258.61%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 = 100%</td><td>2019</td><td>182</td><td>0</td><td>0</td><td></td><td class="zero">0</td><td class="zero">0</td><td class="zero">0.00%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 = 100%</td><td>2020</td><td>182</td><td>0</td><td>0</td><td></td><td class="zero">0</td><td class="zero">0</td><td class="zero">0.00%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 = 100%</td><td>2021</td><td>182</td><td>1</td><td>1</td><td>100.0%</td><td class="pos">59.7</td><td class="pos">2,984</td><td class="pos">1.19%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 = 100%</td><td>2022</td><td>182</td><td>2</td><td>2</td><td>100.0%</td><td class="pos">32.4</td><td class="pos">1,618</td><td class="pos">0.65%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 = 100%</td><td>2023</td><td>182</td><td>2</td><td>2</td><td>100.0%</td><td class="pos">129.4</td><td class="pos">6,468</td><td class="pos">2.59%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 = 100%</td><td>2024</td><td>182</td><td>3</td><td>3</td><td>100.0%</td><td class="pos">43.5</td><td class="pos">2,174</td><td class="pos">0.87%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 = 100%</td><td>2025</td><td>182</td><td>25</td><td>27</td><td>100.0%</td><td class="pos">2,653.4</td><td class="pos">132,668</td><td class="pos">53.07%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+<tr><td>大台全日</td><td>勝率 = 100%</td><td>2026</td><td>182</td><td>157</td><td>212</td><td>100.0%</td><td class="pos">12,930.6</td><td class="pos">646,531</td><td class="pos">258.61%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr>
+</tbody>
+</table>
+</div>
+</main>
+</body>
+</html>

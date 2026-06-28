@@ -9,6 +9,7 @@ if __package__ is None or __package__ == "":
 
 from mtx_research.anchor_body_bins import EXPECTED_COMBOS, scan
 from mtx_research.data_sources import DEFAULT_INSTRUMENT, DATA_SOURCES, resolve_data_path
+from mtx_research.session_layers import DEFAULT_SESSION, SESSION_SPECS, resolve_session
 
 
 def main() -> None:
@@ -21,6 +22,12 @@ def main() -> None:
         help="Use configured full-session data source when --data is omitted.",
     )
     parser.add_argument(
+        "--session",
+        choices=sorted(SESSION_SPECS),
+        default=DEFAULT_SESSION,
+        help="Trading session filter: day or all.",
+    )
+    parser.add_argument(
         "--outdir",
         type=Path,
         default=Path("report_outputs") / "anchor_body_gap_bins_11152",
@@ -29,9 +36,11 @@ def main() -> None:
     args = parser.parse_args()
 
     data_path = resolve_data_path(args.instrument, args.data)
-    paths = scan(data_path, args.outdir, progress_every=args.progress_every)
+    session = resolve_session(args.session)
+    paths = scan(data_path, args.outdir, params=session.params, progress_every=args.progress_every)
     print(f"Done. combos={EXPECTED_COMBOS:,}")
     print(f"data={data_path}")
+    print(f"session={session.key} ({session.label})")
     print(f"summary={paths['summary']}")
     print(f"html={paths['html']}")
 

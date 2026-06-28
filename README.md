@@ -42,6 +42,18 @@ index.html
 report_outputs/anchor_body_gap_bins_11152/anchor_body_gap_bins_report.html
 ```
 
+四層矩陣入口：
+
+```text
+report_outputs/four_layer_matrix/four_layer_matrix_index.html
+```
+
+四層勝率門檻總表：
+
+```text
+report_outputs/four_layer_matrix/four_layer_threshold_report.html
+```
+
 ## 重新產生報表
 
 小台指預設資料：
@@ -55,6 +67,23 @@ python mtx_research/run_anchor_body_bins.py --outdir report_outputs/anchor_body_
 ```powershell
 python mtx_research/run_anchor_body_bins.py --instrument tx --outdir report_outputs/anchor_body_gap_bins_11152_tx
 ```
+
+一次重跑四層矩陣與勝率門檻總表：
+
+```powershell
+python mtx_research/run_four_layer_matrix.py --outdir report_outputs/four_layer_matrix --progress-every 200000
+```
+
+四層內容：
+
+```text
+1. 小台日盤：mtx + day
+2. 小台全日：mtx + all
+3. 大台日盤：tx + day
+4. 大台全日：tx + all
+```
+
+日盤時段為 09:05~13:10，13:12 強制平倉。全日另加入 15:03~23:55 與 00:03~04:55。
 
 若要指定其他資料檔，可用 `--data` 覆蓋 `--instrument`：
 

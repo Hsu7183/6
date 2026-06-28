@@ -19,6 +19,8 @@ report_outputs/*
 !report_outputs/anchor_body_gap_bins_11152/winrate_threshold_report.html
 !report_outputs/anchor_body_gap_bins_11152/winrate_threshold_summary.csv
 !report_outputs/anchor_body_gap_bins_11152/winrate_threshold_by_year.csv
+!report_outputs/four_layer_matrix/
+!report_outputs/four_layer_matrix/**
 
 # Older generated report folders are local artifacts.
 rod_yearly_report/
