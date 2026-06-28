@@ -303,16 +303,18 @@
   <section id="xs" class="page">
     <div class="panel">
       <h2>XS 指標板 / 交易板程式碼</h2>
-      <p>比例版 11,152 組參數已可產生對應的完整 XS 程式碼：每組一份指標板、一份交易板。這些檔案是本機大量輸出，不會推到 GitHub。</p>
+      <p>比例版 XS 分成兩種：第一種是圖表上 24 個勝率門檻按鈕的整合版；第二種是 11,152 組單參數逐一輸出版。這些檔案是本機大量輸出，不會推到 GitHub。</p>
       <div class="grid">
-        <div class="metric"><div class="label">指標板資料夾</div><div class="value">xs_scripts/anchor_ratio_20000/indicator</div></div>
-        <div class="metric"><div class="label">交易板資料夾</div><div class="value">xs_scripts/anchor_ratio_20000/trade</div></div>
-        <div class="metric"><div class="label">對照表</div><div class="value">xs_scripts/anchor_ratio_20000/manifest.csv</div></div>
-        <div class="metric"><div class="label">總檔案數</div><div class="value">22,304 個 .xs</div></div>
+        <div class="metric"><div class="label">門檻整合版</div><div class="value">24 套，48 個 .xs</div></div>
+        <div class="metric"><div class="label">門檻整合指標板</div><div class="value">xs_scripts/anchor_ratio_threshold_24/indicator</div></div>
+        <div class="metric"><div class="label">門檻整合交易板</div><div class="value">xs_scripts/anchor_ratio_threshold_24/trade</div></div>
+        <div class="metric"><div class="label">門檻整合對照表</div><div class="value">xs_scripts/anchor_ratio_threshold_24/manifest.csv</div></div>
       </div>
-      <p><a class="button secondary" href="xs_scripts/anchor_ratio_20000/README.txt">README</a>
-      <a class="button secondary" href="xs_scripts/anchor_ratio_20000/manifest.csv">manifest.csv</a></p>
-      <div class="note">預設三段交易時間都開啟；只跑日盤時，在 XS input 把 <code>UseTime2</code>、<code>UseTime3</code> 改成 0。</div>
+      <p><a class="button secondary" href="xs_scripts/anchor_ratio_threshold_24/README.txt">門檻版 README</a>
+      <a class="button secondary" href="xs_scripts/anchor_ratio_threshold_24/manifest.csv">門檻版 manifest.csv</a>
+      <a class="button secondary" href="xs_scripts/anchor_ratio_20000/README.txt">單參數版 README</a>
+      <a class="button secondary" href="xs_scripts/anchor_ratio_20000/manifest.csv">單參數版 manifest.csv</a></p>
+      <div class="note">門檻整合版對應圖表按鈕：小台日盤、小台全日、大台日盤、大台全日，各自有勝率 &gt;50%、&gt;60%、&gt;70%、&gt;80%、&gt;90%、=100%。</div>
     </div>
   </section>
 
@@ -322,6 +324,7 @@
       <p>雙擊 <code>run.bat</code> 只會開啟這個入口頁。若要重跑資料，請在專案資料夾執行下列命令。</p>
       <p><code>python mtx_research/run_four_layer_matrix.py --outdir report_outputs/four_layer_matrix --progress-every 200000</code></p>
       <p><code>python mtx_research/run_four_layer_anchor_ratio.py --outdir report_outputs/four_layer_anchor_ratio_20000 --progress-every 200000</code></p>
+      <p><code>python mtx_research/generate_xs_threshold_scripts.py --report-dir report_outputs/four_layer_anchor_ratio_20000 --outdir xs_scripts/anchor_ratio_threshold_24</code></p>
       <p><code>python mtx_research/generate_xs_scripts.py --summary report_outputs/four_layer_anchor_ratio_20000/mtx_day/summary_anchor_body_gap_bins.csv --outdir xs_scripts/anchor_ratio_20000</code></p>
     </div>
   </section>
