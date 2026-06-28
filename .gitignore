@@ -24,6 +24,9 @@ report_outputs/*
 !report_outputs/four_layer_anchor_ratio_20000/
 !report_outputs/four_layer_anchor_ratio_20000/**
 
+# Generated local XS scripts. Use mtx_research/generate_xs_scripts.py to rebuild.
+xs_scripts/
+
 # Older generated report folders are local artifacts.
 rod_yearly_report/
 rod_yearly_report.html
