@@ -249,7 +249,91 @@ def _chart_key(layer: str, threshold: float) -> str:
     return f"chart-{layer_key}-{threshold_key}"
 
 
-def _charts_html(daily: pd.DataFrame | None) -> str:
+def _score_class(value: float) -> str:
+    if pd.isna(value):
+        return ""
+    if value >= 1:
+        return "strong"
+    if value > 0:
+        return "adequate"
+    return "improve"
+
+
+def _summary_lookup(total: pd.DataFrame | None) -> dict[tuple[str, int], object]:
+    if total is None or total.empty:
+        return {}
+    lookup = {}
+    for row in total.itertuples(index=False):
+        lookup[(str(row.Layer), int(round(float(row.Threshold) * 100)))] = row
+    return lookup
+
+
+def _selected_panel_html(part: pd.DataFrame, title: str, key: str, summary_row: object | None) -> str:
+    if summary_row is None:
+        metric_line = "點選下方表格列後，這裡會顯示該門檻的績效摘要。"
+        score_value = "—"
+        score_class = ""
+        kpi_rows = ""
+    else:
+        score_value = _fmt_pct(summary_row.TotalReturnRate, 2)
+        score_class = _score_class(summary_row.TotalReturnRate)
+        metric_line = (
+            f"參數組數 {_fmt_int(summary_row.ParamCount)}｜"
+            f"總次數 {_fmt_int(summary_row.TotalTrades)}｜"
+            f"總勝率 {_fmt_pct(summary_row.WinRate, 1)}｜"
+            f"淨損益 {_fmt_int(summary_row.NetProfitTWD)} 元｜"
+            f"PF {_fmt_num(summary_row.PFNet, 2)}"
+        )
+        kpi_rows = (
+            "<tr>"
+            "<td>總年度績效</td>"
+            f"<td class=\"num\">{_fmt_int(summary_row.TotalTrades)}</td>"
+            f"<td class=\"num\">{_fmt_pct(summary_row.WinRate, 1)}</td>"
+            f"<td class=\"num {_cls(summary_row.NetPoints)}\">{_fmt_num(summary_row.NetPoints, 1)}</td>"
+            f"<td class=\"num {_cls(summary_row.NetProfitTWD)}\">{_fmt_int(summary_row.NetProfitTWD)}</td>"
+            f"<td class=\"num {_cls(summary_row.TotalReturnRate)}\">{_fmt_pct(summary_row.TotalReturnRate, 2)}</td>"
+            f"<td class=\"num\">{_fmt_num(summary_row.MDDNetPointsSum, 1)}</td>"
+            f"<td class=\"num\">{_fmt_pct(summary_row.MDDRateSum, 2)}</td>"
+            f"<td class=\"num\">{_fmt_num(summary_row.MDDNetPointsMax, 1)}</td>"
+            f"<td class=\"num\">{_fmt_pct(summary_row.MDDRateMax, 2)}</td>"
+            "</tr>"
+        )
+
+    return (
+        f'<template data-chart-template="1" data-chart-key="{escape(key)}">'
+        '<section class="single-analysis">'
+        f'<h2 class="single-title">{escape(title)}</h2>'
+        '<div class="top-row">'
+        '<div class="kpi-score-card">'
+        '<div class="score-title">總報酬率</div>'
+        f'<div class="score-value {score_class}">{escape(score_value)}</div>'
+        '<div class="score-desc">已扣手續費、期交稅與出場滑點</div>'
+        '</div>'
+        '<div class="toolbar summary-toolbar">'
+        f'<span>{escape(metric_line)}</span>'
+        '</div>'
+        '</div>'
+        f'<div class="param-line">{escape(title)}｜紅色為獲利、綠色為虧損；折線圖顯示總累積、做多累積、做空累積。</div>'
+        '<div class="chart-wrapper chart-main">'
+        f'{_equity_svg(part, title)}'
+        '</div>'
+        '<div class="chart-wrapper chart-weekly">'
+        f'{_daily_bar_svg(part, title)}'
+        '</div>'
+        '<div class="kpi-wrapper">'
+        '<table class="kpi-table">'
+        '<thead><tr>'
+        '<th>區塊</th><th>次數</th><th>勝率</th><th>淨點數</th><th>淨損益</th><th>報酬率</th><th>MDD 加總</th><th>MDD 加總率</th><th>單組最大 MDD</th><th>單組最大 MDD 率</th>'
+        '</tr></thead>'
+        f'<tbody>{kpi_rows}</tbody>'
+        '</table>'
+        '</div>'
+        '</section>'
+        '</template>'
+    )
+
+
+def _charts_html(daily: pd.DataFrame | None, total: pd.DataFrame | None = None) -> str:
     if daily is None or daily.empty:
         return """
 <h2>每日圖表</h2>
@@ -260,25 +344,19 @@ def _charts_html(daily: pd.DataFrame | None) -> str:
     if "Layer" not in work.columns:
         work["Layer"] = "策略層"
     work["Date"] = work["Date"].astype(int)
+    lookup = _summary_lookup(total)
     buttons: list[str] = []
     templates: list[str] = []
     for (layer, threshold, label), part in work.groupby(["Layer", "Threshold", "ThresholdLabel"], sort=False):
         part = part.sort_values("Date")
         title = f"{layer}｜{label}"
         key = _chart_key(str(layer), float(threshold))
+        summary_row = lookup.get((str(layer), int(round(float(threshold) * 100))))
         buttons.append(
             f'<button type="button" class="chart-select" data-chart-key="{escape(key)}">'
             f"{escape(title)}</button>"
         )
-        templates.append(
-            f'<template data-chart-template="1" data-chart-key="{escape(key)}">'
-            "<section class=\"chart-card\">"
-            f"<h3>{escape(title)}</h3>"
-            f"{_equity_svg(part, title)}"
-            f"{_daily_bar_svg(part, title)}"
-            "</section>"
-            "</template>"
-        )
+        templates.append(_selected_panel_html(part, title, key, summary_row))
     return f"""
 <h2>每日圖表</h2>
 <div class="sub">點選下方門檻按鈕，或點選「總年度門檻總表」任一列，上方只會顯示目前選到的圖表。</div>
@@ -417,8 +495,25 @@ tr:nth-child(even){{background:#f3f8f5}} tr:nth-child(odd){{background:#fff}}
 .chart-select{{appearance:none;border:1px solid #c9d9d1;background:#fff;color:#255d87;border-radius:5px;padding:8px 11px;font-size:16px;font-weight:800;cursor:pointer}}
 .chart-select.active{{background:#255d87;color:#fff;border-color:#255d87}}
 .selected-chart{{margin-top:12px}}
+.single-analysis{{max-width:1100px;margin:0 auto 22px auto}}
+.single-title{{font-size:18px;text-align:center;margin:0 0 6px 0}}
+.top-row{{display:flex;flex-wrap:nowrap;gap:8px;align-items:stretch;margin:0 auto 4px auto}}
+.kpi-score-card{{flex:0 0 150px;background:#fff;border:1px solid #ffd0d0;border-radius:4px;padding:6px 10px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;font-size:12px}}
+.score-title{{font-size:11px;color:#777;margin-bottom:4px}}
+.score-value{{font-size:20px;font-weight:700;text-align:center;margin-bottom:4px}}
+.score-value.strong{{color:#e60000}} .score-value.adequate{{color:#c9a500}} .score-value.improve{{color:#008000}}
+.score-desc{{font-size:11px;color:#777;text-align:center;line-height:1.3}}
+.toolbar.summary-toolbar{{flex:1 1 auto;margin:0;display:flex;gap:8px;align-items:center;justify-content:flex-start;font-size:12px;overflow-x:auto;background:transparent;color:#1d2823;line-height:1.6}}
+.param-line{{margin:0 auto 6px auto;font-size:12px;color:#444;background:#fafafa;border:1px solid #e5e7eb;border-radius:6px;padding:4px 8px;line-height:1.5;word-break:break-all;font-family:"SFMono-Regular",Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}}
+.chart-wrapper{{margin:4px auto 8px auto;background:#fff;border:1px solid #eee;border-radius:4px;padding:8px}}
+.chart-main{{min-height:420px}} .chart-weekly{{min-height:260px}}
 .chart-card{{background:#fff;border:1px solid #dce7e1;border-radius:6px;padding:12px;box-shadow:0 10px 22px rgba(32,48,40,.05)}}
-.chart{{width:100%;height:auto;display:block;margin-top:8px;border:1px solid #edf3ef;border-radius:6px}}
+.chart{{width:100%;height:auto;display:block;border:0;border-radius:4px}}
+.kpi-wrapper{{margin:4px auto;max-width:1100px}}
+.kpi-table{{border-collapse:collapse;background:#fff;font-size:13px;width:100%}}
+.kpi-table th,.kpi-table td{{padding:5px 6px;border-bottom:1px solid #eee;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+.kpi-table th{{background:#fafafa;text-align:center}}
+.kpi-table td.num{{text-align:right;font-variant-numeric:tabular-nums}}
 .chart-link{{cursor:pointer}}
 .chart-link:hover td{{background:#eef7f2}}
 .chart-link.active-row td{{background:#e2f0ea}}
@@ -441,7 +536,7 @@ tr:nth-child(even){{background:#f3f8f5}} tr:nth-child(odd){{background:#fff}}
 <main>
 <div class="note">門檻統計使用扣成本後勝率：小台與大台分別套用自己的本金、點值、手續費、出場 2 點滑點與期交稅。MDD 表格同時保留所有入選策略加總 MDD，以及單一策略最大 MDD。</div>
 
-{_charts_html(daily)}
+{_charts_html(daily, total)}
 
 <h2>總年度門檻總表</h2>
 <div class="table-wrap">
