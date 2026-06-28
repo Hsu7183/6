@@ -268,12 +268,48 @@ def _summary_lookup(total: pd.DataFrame | None) -> dict[tuple[str, int], object]
     return lookup
 
 
+def _mini_kpi_card(label: str, value: str, css_class: str = "") -> str:
+    return (
+        '<div class="mini-kpi">'
+        f'<div class="mini-kpi-label">{escape(label)}</div>'
+        f'<div class="mini-kpi-value {css_class}">{escape(value)}</div>'
+        '</div>'
+    )
+
+
+def _daily_detail_rows(part: pd.DataFrame) -> str:
+    rows: list[str] = []
+    for idx, row in enumerate(part.itertuples(index=False), start=1):
+        rows.append(
+            "<tr>"
+            f"<td>{idx}</td>"
+            f"<td>{escape(_date_label(row.Date))}</td>"
+            f"<td class=\"num {_cls(row.DailyNetTWD)}\">{_fmt_int(row.DailyNetTWD)}</td>"
+            f"<td class=\"num {_cls(row.DailyLongTWD)}\">{_fmt_int(row.DailyLongTWD)}</td>"
+            f"<td class=\"num {_cls(row.DailyShortTWD)}\">{_fmt_int(row.DailyShortTWD)}</td>"
+            f"<td class=\"num {_cls(row.CumNetTWD)}\">{_fmt_int(row.CumNetTWD)}</td>"
+            f"<td class=\"num {_cls(row.CumLongTWD)}\">{_fmt_int(row.CumLongTWD)}</td>"
+            f"<td class=\"num {_cls(row.CumShortTWD)}\">{_fmt_int(row.CumShortTWD)}</td>"
+            "</tr>"
+        )
+    return "\n".join(rows)
+
+
 def _selected_panel_html(part: pd.DataFrame, title: str, key: str, summary_row: object | None) -> str:
+    best_day = float(part["DailyNetTWD"].max()) if len(part) else 0.0
+    worst_day = float(part["DailyNetTWD"].min()) if len(part) else 0.0
+    final_net = float(part["CumNetTWD"].iloc[-1]) if len(part) else 0.0
+    final_long = float(part["CumLongTWD"].iloc[-1]) if len(part) else 0.0
+    final_short = float(part["CumShortTWD"].iloc[-1]) if len(part) else 0.0
+    active_days = int(len(part))
+    detail_rows = _daily_detail_rows(part)
+
     if summary_row is None:
         metric_line = "點選下方表格列後，這裡會顯示該門檻的績效摘要。"
         score_value = "—"
         score_class = ""
         kpi_rows = ""
+        kpi_cards = ""
     else:
         score_value = _fmt_pct(summary_row.TotalReturnRate, 2)
         score_class = _score_class(summary_row.TotalReturnRate)
@@ -283,6 +319,20 @@ def _selected_panel_html(part: pd.DataFrame, title: str, key: str, summary_row: 
             f"總勝率 {_fmt_pct(summary_row.WinRate, 1)}｜"
             f"淨損益 {_fmt_int(summary_row.NetProfitTWD)} 元｜"
             f"PF {_fmt_num(summary_row.PFNet, 2)}"
+        )
+        kpi_cards = "".join(
+            [
+                _mini_kpi_card("總次數", _fmt_int(summary_row.TotalTrades)),
+                _mini_kpi_card("總勝率", _fmt_pct(summary_row.WinRate, 1)),
+                _mini_kpi_card("淨損益", f"{_fmt_int(summary_row.NetProfitTWD)} 元", _cls(summary_row.NetProfitTWD)),
+                _mini_kpi_card("PF", _fmt_num(summary_row.PFNet, 2)),
+                _mini_kpi_card("MDD 加總", _fmt_num(summary_row.MDDNetPointsSum, 1)),
+                _mini_kpi_card("交易日數", _fmt_int(active_days)),
+                _mini_kpi_card("最好單日", f"{_fmt_int(best_day)} 元", _cls(best_day)),
+                _mini_kpi_card("最差單日", f"{_fmt_int(worst_day)} 元", _cls(worst_day)),
+                _mini_kpi_card("做多累積", f"{_fmt_int(final_long)} 元", _cls(final_long)),
+                _mini_kpi_card("做空累積", f"{_fmt_int(final_short)} 元", _cls(final_short)),
+            ]
         )
         kpi_rows = (
             "<tr>"
@@ -314,6 +364,7 @@ def _selected_panel_html(part: pd.DataFrame, title: str, key: str, summary_row: 
         '</div>'
         '</div>'
         f'<div class="param-line">{escape(title)}｜紅色為獲利、綠色為虧損；折線圖顯示總累積、做多累積、做空累積。</div>'
+        f'<div class="mini-kpi-grid">{kpi_cards}</div>'
         '<div class="chart-wrapper chart-main">'
         f'{_equity_svg(part, title)}'
         '</div>'
@@ -326,6 +377,15 @@ def _selected_panel_html(part: pd.DataFrame, title: str, key: str, summary_row: 
         '<th>區塊</th><th>次數</th><th>勝率</th><th>淨點數</th><th>淨損益</th><th>報酬率</th><th>MDD 加總</th><th>MDD 加總率</th><th>單組最大 MDD</th><th>單組最大 MDD 率</th>'
         '</tr></thead>'
         f'<tbody>{kpi_rows}</tbody>'
+        '</table>'
+        '</div>'
+        '<div class="trade-detail-wrapper">'
+        '<h3>交易明細（日彙總）</h3>'
+        '<table class="trade-table">'
+        '<thead><tr>'
+        '<th>#</th><th>日期</th><th>當日總損益</th><th>做多損益</th><th>做空損益</th><th>總累積</th><th>做多累積</th><th>做空累積</th>'
+        '</tr></thead>'
+        f'<tbody>{detail_rows}</tbody>'
         '</table>'
         '</div>'
         '</section>'
@@ -505,6 +565,10 @@ tr:nth-child(even){{background:#f3f8f5}} tr:nth-child(odd){{background:#fff}}
 .score-desc{{font-size:11px;color:#777;text-align:center;line-height:1.3}}
 .toolbar.summary-toolbar{{flex:1 1 auto;margin:0;display:flex;gap:8px;align-items:center;justify-content:flex-start;font-size:12px;overflow-x:auto;background:transparent;color:#1d2823;line-height:1.6}}
 .param-line{{margin:0 auto 6px auto;font-size:12px;color:#444;background:#fafafa;border:1px solid #e5e7eb;border-radius:6px;padding:4px 8px;line-height:1.5;word-break:break-all;font-family:"SFMono-Regular",Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}}
+.mini-kpi-grid{{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:8px auto}}
+.mini-kpi{{background:#fff;border:1px solid #e5e7eb;border-radius:4px;padding:7px 8px;min-height:48px;box-sizing:border-box}}
+.mini-kpi-label{{font-size:11px;color:#777;margin-bottom:2px;white-space:nowrap}}
+.mini-kpi-value{{font-size:16px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
 .chart-wrapper{{margin:4px auto 8px auto;background:#fff;border:1px solid #eee;border-radius:4px;padding:8px}}
 .chart-main{{min-height:420px}} .chart-weekly{{min-height:260px}}
 .chart-card{{background:#fff;border:1px solid #dce7e1;border-radius:6px;padding:12px;box-shadow:0 10px 22px rgba(32,48,40,.05)}}
@@ -514,6 +578,14 @@ tr:nth-child(even){{background:#f3f8f5}} tr:nth-child(odd){{background:#fff}}
 .kpi-table th,.kpi-table td{{padding:5px 6px;border-bottom:1px solid #eee;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
 .kpi-table th{{background:#fafafa;text-align:center}}
 .kpi-table td.num{{text-align:right;font-variant-numeric:tabular-nums}}
+.trade-detail-wrapper{{max-width:1100px;margin:8px auto 0 auto;background:#fff;border:1px solid #eee;border-radius:4px;padding:8px;max-height:360px;overflow:auto}}
+.trade-detail-wrapper h3{{font-size:16px;margin:0 0 6px;text-align:left}}
+.trade-table{{border-collapse:collapse;width:100%;font-size:12px;background:#fff}}
+.trade-table th,.trade-table td{{padding:4px 6px;border-bottom:1px solid #eee;white-space:nowrap}}
+.trade-table th{{position:sticky;top:0;background:#fafafa;z-index:1;text-align:center}}
+.trade-table td{{text-align:right}}
+.trade-table td:nth-child(2){{text-align:center}}
+.trade-table tbody tr:nth-child(even){{background:#fcfcfc}}
 .chart-link{{cursor:pointer}}
 .chart-link:hover td{{background:#eef7f2}}
 .chart-link.active-row td{{background:#e2f0ea}}
