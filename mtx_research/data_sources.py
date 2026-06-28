@@ -21,7 +21,7 @@ MTX_FULL_DATA = DataSource(
         r"C:\XQ\data\FIMTXN_1.TF_M1_FULL_MERGED_201912311500_202606261343"
         r"\FIMTXN_1.TF_M1_FULL_MERGED_201912311500_202606261343.txt"
     ),
-    cost=CostConfig(point_value_twd=50, fee_per_side_twd=18),
+    cost=CostConfig(capital_twd=250_000, point_value_twd=50, fee_per_side_twd=18),
 )
 
 TX_FULL_DATA = DataSource(
@@ -31,7 +31,7 @@ TX_FULL_DATA = DataSource(
         r"C:\XQ\data\FITXN_1.TF_M1_FULL_MERGED_201912311500_202606261343"
         r"\FITXN_1.TF_M1_FULL_MERGED_201912311500_202606261343.txt"
     ),
-    cost=CostConfig(point_value_twd=200, fee_per_side_twd=35),
+    cost=CostConfig(capital_twd=1_000_000, point_value_twd=200, fee_per_side_twd=35),
 )
 
 DATA_SOURCES = {
