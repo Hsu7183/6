@@ -243,6 +243,12 @@ def _daily_bar_svg(part: pd.DataFrame, title: str) -> str:
 """
 
 
+def _chart_key(layer: str, threshold: float) -> str:
+    layer_key = "".join(f"{ord(ch):x}" for ch in str(layer))
+    threshold_key = int(round(float(threshold) * 100))
+    return f"chart-{layer_key}-{threshold_key}"
+
+
 def _charts_html(daily: pd.DataFrame | None) -> str:
     if daily is None or daily.empty:
         return """
@@ -254,32 +260,76 @@ def _charts_html(daily: pd.DataFrame | None) -> str:
     if "Layer" not in work.columns:
         work["Layer"] = "策略層"
     work["Date"] = work["Date"].astype(int)
-    work = work.sort_values(["Layer", "Threshold", "Date"])
-    cards: list[str] = []
-    for (layer, label), part in work.groupby(["Layer", "ThresholdLabel"], sort=False):
+    buttons: list[str] = []
+    templates: list[str] = []
+    for (layer, threshold, label), part in work.groupby(["Layer", "Threshold", "ThresholdLabel"], sort=False):
         part = part.sort_values("Date")
         title = f"{layer}｜{label}"
-        cards.append(
+        key = _chart_key(str(layer), float(threshold))
+        buttons.append(
+            f'<button type="button" class="chart-select" data-chart-key="{escape(key)}">'
+            f"{escape(title)}</button>"
+        )
+        templates.append(
+            f'<template data-chart-template="1" data-chart-key="{escape(key)}">'
             "<section class=\"chart-card\">"
             f"<h3>{escape(title)}</h3>"
             f"{_equity_svg(part, title)}"
             f"{_daily_bar_svg(part, title)}"
             "</section>"
+            "</template>"
         )
     return f"""
 <h2>每日圖表</h2>
-<div class="sub">折線圖：總累積獲利、做多累積獲利、做空累積獲利。柱狀圖：每日損益，紅色為獲利、綠色為虧損。</div>
-<div class="chart-grid">
-{''.join(cards)}
+<div class="sub">點選下方門檻按鈕，或點選「總年度門檻總表」任一列，上方只會顯示目前選到的圖表。</div>
+<div class="chart-toolbar" aria-label="圖表選擇">
+{''.join(buttons)}
 </div>
+<div id="selectedChart" class="selected-chart"></div>
+<div id="chartTemplates" hidden>
+{''.join(templates)}
+</div>
+<script>
+(function() {{
+  function showChart(key, shouldScroll) {{
+    var template = document.querySelector('template[data-chart-template="1"][data-chart-key="' + key + '"]');
+    var target = document.getElementById('selectedChart');
+    if (!template || !target) return;
+    target.innerHTML = template.innerHTML;
+    document.querySelectorAll('[data-chart-key]').forEach(function(el) {{
+      var active = el.getAttribute('data-chart-key') === key;
+      el.classList.toggle('active', active);
+      el.classList.toggle('active-row', active && el.tagName === 'TR');
+    }});
+    if (shouldScroll) target.scrollIntoView({{behavior: 'smooth', block: 'start'}});
+  }}
+  function initCharts() {{
+    document.querySelectorAll('[data-chart-key]').forEach(function(el) {{
+      if (el.matches('button.chart-select') || el.matches('tr.chart-link')) {{
+        el.addEventListener('click', function() {{
+          showChart(el.getAttribute('data-chart-key'), true);
+        }});
+      }}
+    }});
+    var first = document.querySelector('template[data-chart-template="1"]');
+    if (first) showChart(first.getAttribute('data-chart-key'), false);
+  }}
+  if (document.readyState === 'loading') {{
+    document.addEventListener('DOMContentLoaded', initCharts);
+  }} else {{
+    initCharts();
+  }}
+}})();
+</script>
 """
 
 
 def _total_rows_html(df: pd.DataFrame) -> str:
     rows: list[str] = []
     for row in df.itertuples(index=False):
+        chart_key = _chart_key(str(row.Layer), float(row.Threshold))
         rows.append(
-            "<tr>"
+            f"<tr class=\"chart-link\" data-chart-key=\"{escape(chart_key)}\">"
             f"<td>{escape(str(row.Layer))}</td>"
             f"<td>{escape(row.ThresholdLabel)}</td>"
             f"<td>{_fmt_int(row.ParamCount)}</td>"
@@ -363,9 +413,15 @@ th{{background:#dfebe5;color:#1d2a25;position:sticky;top:0;z-index:1}}
 td:first-child,th:first-child{{text-align:left;position:sticky;left:0;background:inherit;z-index:2}}
 tr:nth-child(even){{background:#f3f8f5}} tr:nth-child(odd){{background:#fff}}
 .pos{{color:#bf4e3e;font-weight:700}} .neg{{color:#2f7d56;font-weight:700}} .zero{{color:#56645f}}
-.chart-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(680px,1fr));gap:14px;margin-top:12px}}
+.chart-toolbar{{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}}
+.chart-select{{appearance:none;border:1px solid #c9d9d1;background:#fff;color:#255d87;border-radius:5px;padding:8px 11px;font-size:16px;font-weight:800;cursor:pointer}}
+.chart-select.active{{background:#255d87;color:#fff;border-color:#255d87}}
+.selected-chart{{margin-top:12px}}
 .chart-card{{background:#fff;border:1px solid #dce7e1;border-radius:6px;padding:12px;box-shadow:0 10px 22px rgba(32,48,40,.05)}}
 .chart{{width:100%;height:auto;display:block;margin-top:8px;border:1px solid #edf3ef;border-radius:6px}}
+.chart-link{{cursor:pointer}}
+.chart-link:hover td{{background:#eef7f2}}
+.chart-link.active-row td{{background:#e2f0ea}}
 .chart-title{{font-size:18px;font-weight:700;fill:#1d2823}}
 .chart-note,.axis-label{{font-size:13px;fill:#6b7b74}}
 .axis-zero{{stroke:#87948f;stroke-width:1;stroke-dasharray:4 4}}
