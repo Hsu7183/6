@@ -14,9 +14,13 @@ from .xs_anchor_rod import XSParams, _anchor_values, _int_anchor_values, _prepar
 
 
 STRATEGY_ID = "A01_A08_BODY_GAP_BIN_ROD_P1"
+STRATEGY_ID_RATIO = "A01_A08_BODY_GAP_ANCHOR_RATIO_ROD_P1"
 ANCHOR_MODES = list(range(1, 9))
 PENETRATE = 1
 WINRATE_THRESHOLDS = (0.50, 0.60, 0.70, 0.80, 0.90, 1.00)
+BIN_MODE_POINTS = "points"
+BIN_MODE_ANCHOR_RATIO = "anchor_ratio"
+RATIO_REFERENCE_ANCHOR = 20_000.0
 
 # 前 K 實體區間：0~10, 11~20, ... 391~400, 401以上，共 41 組。
 BODY_BINS: list[tuple[int, int | None]] = (
@@ -70,6 +74,25 @@ ANCHOR_SHORT_FORMULAS = {
 def _coord_rule_id(coord: tuple[int, int, int]) -> int:
     anchor_i, body_i, gap_i = coord
     return anchor_i * len(BODY_BINS) * len(GAP_BINS) + body_i * len(GAP_BINS) + gap_i + 1
+
+
+def _ratio_bins(point_bins: list[tuple[int, int | None]], reference_anchor: float) -> list[tuple[float, float | None]]:
+    return [
+        (lo / reference_anchor, None if hi is None else hi / reference_anchor)
+        for lo, hi in point_bins
+    ]
+
+
+def _ratio_label(lo: int, hi: int | None, reference_anchor: float) -> str:
+    lo_pct = lo / reference_anchor * 100
+    if hi is None:
+        return f"{lo_pct:.3f}%以上"
+    hi_pct = hi / reference_anchor * 100
+    return f"{lo_pct:.3f}%~{hi_pct:.3f}%"
+
+
+def _ratio_labels(point_bins: list[tuple[int, int | None]], reference_anchor: float) -> list[str]:
+    return [_ratio_label(lo, hi, reference_anchor) for lo, hi in point_bins]
 
 
 def _threshold_label(threshold: float) -> str:
@@ -298,7 +321,7 @@ def _single_bin_mask(value: float, bins: list[tuple[int, int | None]]) -> np.nda
     return out
 
 
-def _bin_index(value: float, bins: list[tuple[int, int | None]]) -> int:
+def _bin_index(value: float, bins: list[tuple[float, float | None]] | list[tuple[int, int | None]]) -> int:
     for i, (lo, hi) in enumerate(bins):
         if value >= lo and (hi is None or value <= hi):
             return i
@@ -324,6 +347,26 @@ def _candidate_coords(body_bin: int, gap_bins: list[int]) -> set[tuple[int, int,
     }
 
 
+def _candidate_ratio_coords(
+    *,
+    body_points: float,
+    gap_points: list[float],
+    anchors: np.ndarray,
+    body_bins: list[tuple[float, float | None]],
+    gap_bins: list[tuple[float, float | None]],
+) -> set[tuple[int, int, int]]:
+    coords: set[tuple[int, int, int]] = set()
+    for anchor_i, anchor in enumerate(anchors):
+        denom = abs(float(anchor))
+        if denom <= 0:
+            continue
+        body_bin = _bin_index(body_points / denom, body_bins)
+        gap_bin = _bin_index(gap_points[anchor_i] / denom, gap_bins)
+        if body_bin >= 0 and gap_bin >= 0:
+            coords.add((anchor_i, body_bin, gap_bin))
+    return coords
+
+
 def scan(
     data_path: Path,
     outdir: Path,
@@ -331,9 +374,15 @@ def scan(
     params: XSParams | None = None,
     cost: CostConfig | None = None,
     progress_every: int = 100_000,
+    bin_mode: str = BIN_MODE_POINTS,
+    reference_anchor: float = RATIO_REFERENCE_ANCHOR,
 ) -> dict[str, Path]:
     params = params or XSParams()
     cost = cost or CostConfig()
+    if bin_mode not in {BIN_MODE_POINTS, BIN_MODE_ANCHOR_RATIO}:
+        raise ValueError(f"unknown bin_mode: {bin_mode!r}")
+    if bin_mode == BIN_MODE_ANCHOR_RATIO and reference_anchor <= 0:
+        raise ValueError("reference_anchor must be positive for anchor-ratio bins")
     if EXPECTED_COMBOS != 11_152:
         raise RuntimeError(f"combo count {EXPECTED_COMBOS:,} != 11,152")
 
@@ -342,6 +391,8 @@ def scan(
     samples = _prepare_samples(df, params)
     years = tuple(int(y) for y in sorted(samples["Year"].unique()))
     year_to_index = {year: i for i, year in enumerate(years)}
+    body_bins = BODY_BINS if bin_mode == BIN_MODE_POINTS else _ratio_bins(BODY_BINS, reference_anchor)
+    gap_bins = GAP_BINS if bin_mode == BIN_MODE_POINTS else _ratio_bins(GAP_BINS, reference_anchor)
 
     shape = (len(ANCHOR_MODES), len(BODY_BINS), len(GAP_BINS))
     stats = BodyGapStats(shape, years)
@@ -359,19 +410,34 @@ def scan(
         if pending_expired.any():
             pending_raw_index[pending_expired] = -1
 
-        long_body_bin = _bin_index(float(row.C1 - row.O1), BODY_BINS)
-        short_body_bin = _bin_index(float(row.O1 - row.C1), BODY_BINS)
-        long_gap_bins = [
-            _bin_index(float(row.O0) - float(anchor), GAP_BINS)
-            for anchor in raw_long_anchors
-        ]
-        short_gap_bins = [
-            _bin_index(float(anchor) - float(row.O0), GAP_BINS)
-            for anchor in raw_short_anchors
-        ]
-
-        long_triggers = _candidate_coords(long_body_bin, long_gap_bins)
-        short_triggers = _candidate_coords(short_body_bin, short_gap_bins)
+        if bin_mode == BIN_MODE_POINTS:
+            long_body_bin = _bin_index(float(row.C1 - row.O1), body_bins)
+            short_body_bin = _bin_index(float(row.O1 - row.C1), body_bins)
+            long_gap_bins = [
+                _bin_index(float(row.O0) - float(anchor), gap_bins)
+                for anchor in raw_long_anchors
+            ]
+            short_gap_bins = [
+                _bin_index(float(anchor) - float(row.O0), gap_bins)
+                for anchor in raw_short_anchors
+            ]
+            long_triggers = _candidate_coords(long_body_bin, long_gap_bins)
+            short_triggers = _candidate_coords(short_body_bin, short_gap_bins)
+        else:
+            long_triggers = _candidate_ratio_coords(
+                body_points=float(row.C1 - row.O1),
+                gap_points=[float(row.O0) - float(anchor) for anchor in raw_long_anchors],
+                anchors=raw_long_anchors,
+                body_bins=body_bins,
+                gap_bins=gap_bins,
+            )
+            short_triggers = _candidate_ratio_coords(
+                body_points=float(row.O1 - row.C1),
+                gap_points=[float(anchor) - float(row.O0) for anchor in raw_short_anchors],
+                anchors=raw_short_anchors,
+                body_bins=body_bins,
+                gap_bins=gap_bins,
+            )
         both_triggers = long_triggers & short_triggers
         if both_triggers:
             long_triggers -= both_triggers
@@ -455,10 +521,10 @@ def scan(
                 pending_raw_index[coord] = raw_index
 
         if progress_every and (order + 1) % progress_every == 0:
-            print(f"Anchor body-gap progress: {order + 1:,}/{len(samples):,}")
-    print(f"Anchor body-gap progress: {len(samples):,}/{len(samples):,}")
+            print(f"Anchor body-gap {bin_mode} progress: {order + 1:,}/{len(samples):,}")
+    print(f"Anchor body-gap {bin_mode} progress: {len(samples):,}/{len(samples):,}")
 
-    summary, by_year = _flatten(stats, years, cost)
+    summary, by_year = _flatten(stats, years, cost, bin_mode=bin_mode, reference_anchor=reference_anchor)
     threshold_daily = _threshold_daily(summary, stats.daily_net_twd)
     threshold_trades = _threshold_trades(summary, stats.trade_rows)
     summary_path = outdir / "summary_anchor_body_gap_bins.csv"
@@ -470,7 +536,7 @@ def scan(
     by_year.to_csv(by_year_path, index=False, encoding="utf-8-sig")
     threshold_daily.to_csv(daily_path, index=False, encoding="utf-8-sig")
     threshold_trades.to_csv(trades_path, index=False, encoding="utf-8-sig")
-    write_html(summary, by_year, html_path, data_report=data_report, cost=cost)
+    write_html(summary, by_year, html_path, data_report=data_report, cost=cost, bin_mode=bin_mode, reference_anchor=reference_anchor)
     return {"summary": summary_path, "by_year": by_year_path, "daily": daily_path, "trades": trades_path, "html": html_path}
 
 
@@ -478,29 +544,55 @@ def _flatten(
     stats: BodyGapStats,
     years: tuple[int, ...],
     cost: CostConfig,
+    *,
+    bin_mode: str = BIN_MODE_POINTS,
+    reference_anchor: float = RATIO_REFERENCE_ANCHOR,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     coords = np.where(np.ones(stats.shape, dtype=bool))
     anchor_idx, body_idx, gap_idx = coords
     anchor_modes = np.asarray(ANCHOR_MODES)
-    body_labels = _range_labels(BODY_BINS)
-    gap_labels = _range_labels(GAP_BINS)
+    point_body_labels = _range_labels(BODY_BINS)
+    point_gap_labels = _range_labels(GAP_BINS)
+    is_ratio = bin_mode == BIN_MODE_ANCHOR_RATIO
+    body_labels = _ratio_labels(BODY_BINS, reference_anchor) if is_ratio else point_body_labels
+    gap_labels = _ratio_labels(GAP_BINS, reference_anchor) if is_ratio else point_gap_labels
 
     rows = pd.DataFrame(
         {
             "RuleID": np.arange(1, len(anchor_idx) + 1),
             "RunID": [f"G{x:04d}" for x in range(1, len(anchor_idx) + 1)],
-            "StrategyID": STRATEGY_ID,
+            "StrategyID": STRATEGY_ID_RATIO if is_ratio else STRATEGY_ID,
+            "BinMode": bin_mode,
+            "ReferenceAnchor": reference_anchor if is_ratio else np.nan,
             "AnchorMode": anchor_modes[anchor_idx],
             "AnchorID": [f"A{int(anchor_modes[i]):02d}" for i in anchor_idx],
             "AnchorLabel": [ANCHOR_LABELS[int(anchor_modes[i])] for i in anchor_idx],
             "BodyBinIndex": body_idx + 1,
             "BodyBin": [body_labels[i] for i in body_idx],
-            "BodyMin": [BODY_BINS[i][0] for i in body_idx],
-            "BodyMax": [BODY_BINS[i][1] if BODY_BINS[i][1] is not None else np.nan for i in body_idx],
+            "BodyPointBin": [point_body_labels[i] for i in body_idx],
+            "BodyPointMin": [BODY_BINS[i][0] for i in body_idx],
+            "BodyPointMax": [BODY_BINS[i][1] if BODY_BINS[i][1] is not None else np.nan for i in body_idx],
+            "BodyRatioMinPct": [BODY_BINS[i][0] / reference_anchor * 100 if is_ratio else np.nan for i in body_idx],
+            "BodyRatioMaxPct": [BODY_BINS[i][1] / reference_anchor * 100 if is_ratio and BODY_BINS[i][1] is not None else np.nan for i in body_idx],
+            "BodyMin": [BODY_BINS[i][0] / reference_anchor if is_ratio else BODY_BINS[i][0] for i in body_idx],
+            "BodyMax": [
+                BODY_BINS[i][1] / reference_anchor if is_ratio and BODY_BINS[i][1] is not None else
+                (np.nan if BODY_BINS[i][1] is None else BODY_BINS[i][1])
+                for i in body_idx
+            ],
             "GapBinIndex": gap_idx + 1,
             "GapBin": [gap_labels[i] for i in gap_idx],
-            "GapMin": [GAP_BINS[i][0] for i in gap_idx],
-            "GapMax": [GAP_BINS[i][1] if GAP_BINS[i][1] is not None else np.nan for i in gap_idx],
+            "GapPointBin": [point_gap_labels[i] for i in gap_idx],
+            "GapPointMin": [GAP_BINS[i][0] for i in gap_idx],
+            "GapPointMax": [GAP_BINS[i][1] if GAP_BINS[i][1] is not None else np.nan for i in gap_idx],
+            "GapRatioMinPct": [GAP_BINS[i][0] / reference_anchor * 100 if is_ratio else np.nan for i in gap_idx],
+            "GapRatioMaxPct": [GAP_BINS[i][1] / reference_anchor * 100 if is_ratio and GAP_BINS[i][1] is not None else np.nan for i in gap_idx],
+            "GapMin": [GAP_BINS[i][0] / reference_anchor if is_ratio else GAP_BINS[i][0] for i in gap_idx],
+            "GapMax": [
+                GAP_BINS[i][1] / reference_anchor if is_ratio and GAP_BINS[i][1] is not None else
+                (np.nan if GAP_BINS[i][1] is None else GAP_BINS[i][1])
+                for i in gap_idx
+            ],
             "Penetrate": PENETRATE,
         }
     )
@@ -694,12 +786,26 @@ def write_html(
     *,
     data_report: object | None = None,
     cost: CostConfig | None = None,
+    bin_mode: str = BIN_MODE_POINTS,
+    reference_anchor: float = RATIO_REFERENCE_ANCHOR,
 ) -> None:
     cost = cost or CostConfig()
     years = sorted(int(y) for y in by_year["Year"].unique())
     year_map = {(int(r.RuleID), int(r.Year)): r for r in by_year.itertuples(index=False)}
-    body_labels = _range_labels(BODY_BINS)
-    gap_labels = _range_labels(GAP_BINS)
+    is_ratio = bin_mode == BIN_MODE_ANCHOR_RATIO
+    body_labels = _ratio_labels(BODY_BINS, reference_anchor) if is_ratio else _range_labels(BODY_BINS)
+    gap_labels = _ratio_labels(GAP_BINS, reference_anchor) if is_ratio else _range_labels(GAP_BINS)
+    report_title = (
+        "A01~A08 第0層定錨比例 Body x OpenGap 11,152 組報表"
+        if is_ratio
+        else "A01~A08 第0層 Body x OpenGap 11,152 組報表"
+    )
+    formula_note = (
+        f"公式簡碼：做多 B%=(C1-O1)/A in 前K實體比例區間；G%=(O-A)/A in OpenGap比例區間；L<=A-1。"
+        f"做空鏡像 B%=(O1-C1)/A；G%=(A-O)/A；H>=A+1。比例區間由原點數除以 {reference_anchor:,.0f} 換算。"
+        if is_ratio
+        else "公式簡碼：做多 B=C1-O1 in 前K實體區間；O>=A+Gap下限；O<=A+Gap上限；L<=A-1。做空鏡像 B=O1-C1；O<=A-Gap下限；O>=A-Gap上限；H>=A+1。"
+    )
 
     def fmt_num(v: object, d: int = 1) -> str:
         if v is None or pd.isna(v):
@@ -730,6 +836,12 @@ def write_html(
         return f"{float(v):.10f}"
 
     def long_formula(row: object) -> str:
+        if is_ratio:
+            return (
+                f"B%=(C1-O1)/A in {row.BodyBin}; "
+                f"G%=(O-A)/A in {row.GapBin}; "
+                f"L<=A-1"
+            )
         return (
             f"B=C1-O1 in {row.BodyBin}; "
             f"O>=A+{int(row.GapMin)}; "
@@ -738,6 +850,12 @@ def write_html(
         )
 
     def short_formula(row: object) -> str:
+        if is_ratio:
+            return (
+                f"B%=(O1-C1)/A in {row.BodyBin}; "
+                f"G%=(A-O)/A in {row.GapBin}; "
+                f"H>=A+1"
+            )
         return (
             f"B=O1-C1 in {row.BodyBin}; "
             f"O<=A-{int(row.GapMin)}; "
@@ -831,7 +949,7 @@ def write_html(
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<title>A01~A08 Body x Gap 11,152 組報表</title>
+<title>{escape(report_title)}</title>
 <style>
 body{{font-family:"Microsoft JhengHei",Arial,sans-serif;margin:0;background:#f7faf8;color:#1d2823;font-size:16px}}
 header{{padding:18px 10px;background:white;border-bottom:1px solid #dce7e1}}
@@ -856,11 +974,11 @@ th{{background:#dfece6;position:sticky;top:0;z-index:2}} tbody tr:nth-child(even
 </head>
 <body>
 <header>
-<h1>A01~A08 第0層 Body x OpenGap 11,152 組報表</h1>
+<h1>{escape(report_title)}</h1>
 <div class="sub">
 {data_range}<br>
-公式簡碼：做多 B=C1-O1 in 前K實體區間；O>=A+Gap下限；O<=A+Gap上限；L<=A-1。做空鏡像 B=O1-C1；O<=A-Gap下限；O>=A-Gap上限；H>=A+1。<br>
-成本已扣：進場滑點 {cost.entry_slippage_points:g} 點、出場滑點 {cost.exit_slippage_points:g} 點、手續費來回 {cost.round_trip_fee_twd} 元、期交稅單邊 {cost.tax_rate:g}、小台每點 {cost.point_value_twd} 元、本金 {cost.capital_twd:,} 元。
+{escape(formula_note)}<br>
+成本已扣：進場滑點 {cost.entry_slippage_points:g} 點、出場滑點 {cost.exit_slippage_points:g} 點、手續費來回 {cost.round_trip_fee_twd} 元、期交稅單邊 {cost.tax_rate:g}、每點價值 {cost.point_value_twd} 元、本金 {cost.capital_twd:,} 元。
 </div>
 <div class="cards">
 <div class="card"><div class="label">總組合</div><div class="value">{EXPECTED_COMBOS:,} 組</div></div>
@@ -868,9 +986,8 @@ th{{background:#dfece6;position:sticky;top:0;z-index:2}} tbody tr:nth-child(even
 <div class="card"><div class="label">前K實體區間</div><div class="value">41 組</div></div>
 <div class="card"><div class="label">OpenGap區間</div><div class="value">34 組</div></div>
 <div class="card"><div class="label">Penetrate</div><div class="value">固定 1</div></div>
+<div class="card"><div class="label">區間模式</div><div class="value">{'定錨比例' if is_ratio else '點數'}</div></div>
 <div class="card"><div class="label">輸出</div><div class="value">{escape(str(output.parent))}</div></div>
-<div class="card"><div class="label">CSV</div><div class="value">summary / by_year</div></div>
-<div class="card"><div class="label">排序</div><div class="value">點表頭切換</div></div>
 </div>
 </header>
 <main>
