@@ -11,7 +11,7 @@ if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from mtx_research.anchor_body_bins import EXPECTED_COMBOS, scan
-from mtx_research.data_sources import resolve_data_path
+from mtx_research.data_sources import cost_for_instrument, resolve_data_path
 from mtx_research.session_layers import resolve_session
 from mtx_research.winrate_threshold_report import build_report, write_html
 
@@ -47,13 +47,22 @@ def _scan_or_reuse(layer: Layer, outdir: Path, progress_every: int, skip_existin
         return {"summary": summary, "by_year": by_year, "html": html}
 
     data_path = resolve_data_path(layer.instrument)
+    cost = cost_for_instrument(layer.instrument)
     session = resolve_session(layer.session)
     print("=" * 72)
     print(f"[{layer.label}] start matrix")
     print(f"data={data_path}")
     print(f"session={session.key} ({session.label})")
+    print(
+        "cost="
+        f"point_value={cost.point_value_twd}, "
+        f"fee_per_side={cost.fee_per_side_twd}, "
+        f"entry_slippage={cost.entry_slippage_points}, "
+        f"exit_slippage={cost.exit_slippage_points}, "
+        f"tax_rate={cost.tax_rate}"
+    )
     print(f"outdir={outdir}")
-    return scan(data_path, outdir, params=session.params, progress_every=progress_every)
+    return scan(data_path, outdir, params=session.params, cost=cost, progress_every=progress_every)
 
 
 def _build_layer_threshold(layer: Layer, paths: dict[str, Path], outdir: Path) -> dict[str, Path]:
@@ -62,6 +71,7 @@ def _build_layer_threshold(layer: Layer, paths: dict[str, Path], outdir: Path) -
         paths["summary"],
         paths["by_year"],
         outdir,
+        cost=cost_for_instrument(layer.instrument),
         layer_label=layer.label,
         title=f"{layer.label} 勝率門檻總表",
         description=(

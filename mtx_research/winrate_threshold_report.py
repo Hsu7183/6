@@ -12,6 +12,7 @@ if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from mtx_research.config import CostConfig
+from mtx_research.data_sources import DEFAULT_INSTRUMENT, DATA_SOURCES, cost_for_instrument
 
 
 THRESHOLDS = (0.50, 0.60, 0.70, 0.80, 0.90, 1.00)
@@ -278,12 +279,13 @@ def build_report(
     by_year_csv: Path,
     output_dir: Path,
     *,
+    cost: CostConfig | None = None,
     layer_label: str = "單一層次",
     title: str | None = None,
     description: str | None = None,
     matrix_href: str | None = "anchor_body_gap_bins_report.html",
 ) -> dict[str, Path]:
-    cost = CostConfig()
+    cost = cost or CostConfig()
     output_dir.mkdir(parents=True, exist_ok=True)
     summary = pd.read_csv(summary_csv)
     by_year = pd.read_csv(by_year_csv)
@@ -324,9 +326,21 @@ def main() -> None:
         type=Path,
         default=Path("report_outputs") / "anchor_body_gap_bins_11152",
     )
+    parser.add_argument(
+        "--instrument",
+        choices=sorted(DATA_SOURCES),
+        default=DEFAULT_INSTRUMENT,
+        help="Use the matching point value, fee, slippage, and tax settings.",
+    )
     parser.add_argument("--layer-label", default="單一層次")
     args = parser.parse_args()
-    paths = build_report(args.summary, args.by_year, args.outdir, layer_label=args.layer_label)
+    paths = build_report(
+        args.summary,
+        args.by_year,
+        args.outdir,
+        cost=cost_for_instrument(args.instrument),
+        layer_label=args.layer_label,
+    )
     print(f"summary={paths['summary']}")
     print(f"by_year={paths['by_year']}")
     print(f"html={paths['html']}")

@@ -7,7 +7,7 @@ from pathlib import Path
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from mtx_research.data_sources import DEFAULT_INSTRUMENT, DATA_SOURCES, resolve_data_path
+from mtx_research.data_sources import DEFAULT_INSTRUMENT, DATA_SOURCES, cost_for_instrument, resolve_data_path
 from mtx_research.xs_anchor_rod import EXPECTED_COMBOS, combo_count, scan
 
 
@@ -32,9 +32,18 @@ def main() -> None:
     if total != EXPECTED_COMBOS:
         raise RuntimeError(f"combo count {total:,} != {EXPECTED_COMBOS:,}")
     data_path = resolve_data_path(args.instrument, args.data)
-    paths = scan(data_path, args.outdir, progress_every=args.progress_every)
+    cost = cost_for_instrument(args.instrument)
+    paths = scan(data_path, args.outdir, cost=cost, progress_every=args.progress_every)
     print(f"Done. combos={total:,}")
     print(f"data={data_path}")
+    print(
+        "cost="
+        f"point_value={cost.point_value_twd}, "
+        f"fee_per_side={cost.fee_per_side_twd}, "
+        f"entry_slippage={cost.entry_slippage_points}, "
+        f"exit_slippage={cost.exit_slippage_points}, "
+        f"tax_rate={cost.tax_rate}"
+    )
     print(f"summary={paths['summary']}")
     print(f"html={paths['html']}")
 
