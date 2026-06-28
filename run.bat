@@ -1,7 +1,7 @@
 @echo off
 cd /d "%~dp0"
 
-set "REPORT=index.html"
+set "REPORT=report_outputs\four_layer_matrix\four_layer_threshold_report.html"
 
 if exist "%REPORT%" (
     start "" "%CD%\%REPORT%"
