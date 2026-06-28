@@ -108,6 +108,7 @@ class BodyGapStats:
         self.fees = np.zeros(self.shape, dtype=np.float64)
         self.taxes = np.zeros(self.shape, dtype=np.float64)
         self.slippage = np.zeros(self.shape, dtype=np.float64)
+        self.trade_rows: list[dict[str, object]] = []
 
         year_shape = (len(self.years), *self.shape)
         self.year_trades = np.zeros(year_shape, dtype=np.int32)
@@ -140,6 +141,12 @@ class BodyGapStats:
         year_index: int,
         date_int: int | None = None,
         net_profit_twd: float | None = None,
+        entry_time: object | None = None,
+        exit_time: object | None = None,
+        entry_price: float | None = None,
+        exit_price: float | None = None,
+        effective_entry: float | None = None,
+        effective_exit: float | None = None,
     ) -> None:
         if not mask.any():
             return
@@ -197,6 +204,12 @@ class BodyGapStats:
         year_index: int,
         date_int: int | None = None,
         net_profit_twd: float | None = None,
+        entry_time: object | None = None,
+        exit_time: object | None = None,
+        entry_price: float | None = None,
+        exit_price: float | None = None,
+        effective_entry: float | None = None,
+        effective_exit: float | None = None,
     ) -> None:
         self.trades[coord] += 1
         if side == 1:
@@ -241,6 +254,35 @@ class BodyGapStats:
         if date_int is not None and net_profit_twd is not None:
             key = (_coord_rule_id(coord), int(date_int), int(side))
             self.daily_net_twd[key] = self.daily_net_twd.get(key, 0.0) + float(net_profit_twd)
+
+        if (
+            date_int is not None
+            and net_profit_twd is not None
+            and entry_time is not None
+            and exit_time is not None
+            and entry_price is not None
+            and exit_price is not None
+        ):
+            self.trade_rows.append(
+                {
+                    "RuleID": _coord_rule_id(coord),
+                    "Date": int(date_int),
+                    "EntryTime": pd.Timestamp(entry_time).strftime("%Y-%m-%d %H:%M"),
+                    "ExitTime": pd.Timestamp(exit_time).strftime("%Y-%m-%d %H:%M"),
+                    "Side": int(side),
+                    "SideLabel": "做多" if side == 1 else "做空",
+                    "EntryPrice": float(entry_price),
+                    "ExitPrice": float(exit_price),
+                    "EffectiveEntry": float(effective_entry if effective_entry is not None else entry_price),
+                    "EffectiveExit": float(effective_exit if effective_exit is not None else exit_price),
+                    "RawPoints": float(raw_points),
+                    "NetPoints": float(net_points),
+                    "NetProfitTWD": float(net_profit_twd),
+                    "FeeTWD": int(fee_twd),
+                    "TaxTWD": int(tax_twd),
+                    "SlippageTWD": float(slippage_twd),
+                }
+            )
 
 
 def _range_labels(bins: list[tuple[int, int | None]]) -> list[str]:
@@ -357,7 +399,9 @@ def scan(
         for coord in active_long:
             anchor_i = coord[0]
             if (float(int_long_anchors[anchor_i]) - float(row.L0)) >= PENETRATE:
-                trade = costed_points(1, float(int_long_anchors[anchor_i]), float(row.NextOpen), cost)
+                entry_price = float(int_long_anchors[anchor_i])
+                exit_price = float(row.NextOpen)
+                trade = costed_points(1, entry_price, exit_price, cost)
                 stats.add_trade_at(
                     coord,
                     side=1,
@@ -369,6 +413,12 @@ def scan(
                     year_index=year_index,
                     date_int=int(row.DateInt),
                     net_profit_twd=trade.net_profit_twd,
+                    entry_time=row.DateTime,
+                    exit_time=row.NextDateTime,
+                    entry_price=entry_price,
+                    exit_price=exit_price,
+                    effective_entry=trade.effective_entry,
+                    effective_exit=trade.effective_exit,
                 )
                 last_entry_raw_index[coord] = raw_index
                 pending_raw_index[coord] = -1
@@ -378,7 +428,9 @@ def scan(
         for coord in active_short:
             anchor_i = coord[0]
             if (float(row.H0) - float(int_short_anchors[anchor_i])) >= PENETRATE:
-                trade = costed_points(-1, float(int_short_anchors[anchor_i]), float(row.NextOpen), cost)
+                entry_price = float(int_short_anchors[anchor_i])
+                exit_price = float(row.NextOpen)
+                trade = costed_points(-1, entry_price, exit_price, cost)
                 stats.add_trade_at(
                     coord,
                     side=-1,
@@ -390,6 +442,12 @@ def scan(
                     year_index=year_index,
                     date_int=int(row.DateInt),
                     net_profit_twd=trade.net_profit_twd,
+                    entry_time=row.DateTime,
+                    exit_time=row.NextDateTime,
+                    entry_price=entry_price,
+                    exit_price=exit_price,
+                    effective_entry=trade.effective_entry,
+                    effective_exit=trade.effective_exit,
                 )
                 last_entry_raw_index[coord] = raw_index
                 pending_raw_index[coord] = -1
@@ -402,15 +460,18 @@ def scan(
 
     summary, by_year = _flatten(stats, years, cost)
     threshold_daily = _threshold_daily(summary, stats.daily_net_twd)
+    threshold_trades = _threshold_trades(summary, stats.trade_rows)
     summary_path = outdir / "summary_anchor_body_gap_bins.csv"
     by_year_path = outdir / "by_year_anchor_body_gap_bins.csv"
     daily_path = outdir / "winrate_threshold_daily.csv"
+    trades_path = outdir / "winrate_threshold_trades.csv"
     html_path = outdir / "anchor_body_gap_bins_report.html"
     summary.to_csv(summary_path, index=False, encoding="utf-8-sig")
     by_year.to_csv(by_year_path, index=False, encoding="utf-8-sig")
     threshold_daily.to_csv(daily_path, index=False, encoding="utf-8-sig")
+    threshold_trades.to_csv(trades_path, index=False, encoding="utf-8-sig")
     write_html(summary, by_year, html_path, data_report=data_report, cost=cost)
-    return {"summary": summary_path, "by_year": by_year_path, "daily": daily_path, "html": html_path}
+    return {"summary": summary_path, "by_year": by_year_path, "daily": daily_path, "trades": trades_path, "html": html_path}
 
 
 def _flatten(
@@ -565,6 +626,61 @@ def _threshold_daily(
         grouped.insert(0, "ThresholdLabel", _threshold_label(threshold))
         grouped.insert(0, "Threshold", threshold)
         parts.append(grouped[columns])
+
+    if not parts:
+        return pd.DataFrame(columns=columns)
+    return pd.concat(parts, ignore_index=True)
+
+
+def _threshold_trades(
+    summary: pd.DataFrame,
+    trade_rows: list[dict[str, object]],
+) -> pd.DataFrame:
+    columns = [
+        "Threshold",
+        "ThresholdLabel",
+        "RuleID",
+        "RunID",
+        "AnchorID",
+        "BodyBin",
+        "GapBin",
+        "Date",
+        "EntryTime",
+        "ExitTime",
+        "Side",
+        "SideLabel",
+        "EntryPrice",
+        "ExitPrice",
+        "EffectiveEntry",
+        "EffectiveExit",
+        "RawPoints",
+        "NetPoints",
+        "NetProfitTWD",
+        "FeeTWD",
+        "TaxTWD",
+        "SlippageTWD",
+        "CumNetProfitTWD",
+    ]
+    if not trade_rows:
+        return pd.DataFrame(columns=columns)
+
+    trades = pd.DataFrame(trade_rows)
+    meta = summary[["RuleID", "RunID", "AnchorID", "BodyBin", "GapBin"]].copy()
+    trades = trades.merge(meta, on="RuleID", how="left")
+    parts: list[pd.DataFrame] = []
+    for threshold in WINRATE_THRESHOLDS:
+        selected = _select_by_threshold(summary, threshold)
+        if selected.empty:
+            continue
+        selected_ids = set(int(rule_id) for rule_id in selected["RuleID"])
+        part = trades[trades["RuleID"].isin(selected_ids)].copy()
+        if part.empty:
+            continue
+        part = part.sort_values(["EntryTime", "ExitTime", "RuleID", "Side"]).reset_index(drop=True)
+        part["CumNetProfitTWD"] = part["NetProfitTWD"].cumsum()
+        part.insert(0, "ThresholdLabel", _threshold_label(threshold))
+        part.insert(0, "Threshold", threshold)
+        parts.append(part[columns])
 
     if not parts:
         return pd.DataFrame(columns=columns)

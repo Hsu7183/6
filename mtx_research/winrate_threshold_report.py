@@ -295,14 +295,60 @@ def _daily_detail_rows(part: pd.DataFrame) -> str:
     return "\n".join(rows)
 
 
-def _selected_panel_html(part: pd.DataFrame, title: str, key: str, summary_row: object | None) -> str:
+def _trade_time_text(value: object) -> str:
+    if pd.isna(value):
+        return ""
+    text = str(value)
+    if len(text) >= 16:
+        return text[:16]
+    return text
+
+
+def _trade_detail_rows(part: pd.DataFrame) -> str:
+    if part is None or part.empty:
+        return '<tr><td colspan="16" class="empty-detail">這個門檻目前沒有逐筆交易資料。</td></tr>'
+
+    rows: list[str] = []
+    for idx, row in enumerate(part.itertuples(index=False), start=1):
+        side_cls = "pos" if int(row.Side) == 1 else "neg"
+        rows.append(
+            "<tr>"
+            f"<td>{idx}</td>"
+            f"<td>{escape(str(row.RunID))}</td>"
+            f"<td>{escape(str(row.AnchorID))}</td>"
+            f"<td>{escape(str(row.BodyBin))}</td>"
+            f"<td>{escape(str(row.GapBin))}</td>"
+            f"<td class=\"{side_cls}\">{escape(str(row.SideLabel))}</td>"
+            f"<td>{escape(_trade_time_text(row.EntryTime))}</td>"
+            f"<td>{escape(_trade_time_text(row.ExitTime))}</td>"
+            f"<td class=\"num\">{_fmt_num(row.EntryPrice, 0)}</td>"
+            f"<td class=\"num\">{_fmt_num(row.ExitPrice, 0)}</td>"
+            f"<td class=\"num {_cls(row.RawPoints)}\">{_fmt_num(row.RawPoints, 1)}</td>"
+            f"<td class=\"num {_cls(row.NetPoints)}\">{_fmt_num(row.NetPoints, 1)}</td>"
+            f"<td class=\"num {_cls(row.NetProfitTWD)}\">{_fmt_int(row.NetProfitTWD)}</td>"
+            f"<td class=\"num\">{_fmt_int(row.FeeTWD)}</td>"
+            f"<td class=\"num\">{_fmt_int(row.TaxTWD)}</td>"
+            f"<td class=\"num {_cls(row.CumNetProfitTWD)}\">{_fmt_int(row.CumNetProfitTWD)}</td>"
+            "</tr>"
+        )
+    return "\n".join(rows)
+
+
+def _selected_panel_html(
+    part: pd.DataFrame,
+    title: str,
+    key: str,
+    summary_row: object | None,
+    trades_part: pd.DataFrame | None = None,
+) -> str:
     best_day = float(part["DailyNetTWD"].max()) if len(part) else 0.0
     worst_day = float(part["DailyNetTWD"].min()) if len(part) else 0.0
     final_net = float(part["CumNetTWD"].iloc[-1]) if len(part) else 0.0
     final_long = float(part["CumLongTWD"].iloc[-1]) if len(part) else 0.0
     final_short = float(part["CumShortTWD"].iloc[-1]) if len(part) else 0.0
     active_days = int(len(part))
-    detail_rows = _daily_detail_rows(part)
+    trade_count = int(len(trades_part)) if trades_part is not None else 0
+    detail_rows = _trade_detail_rows(trades_part if trades_part is not None else pd.DataFrame())
 
     if summary_row is None:
         metric_line = "點選下方表格列後，這裡會顯示該門檻的績效摘要。"
@@ -328,6 +374,7 @@ def _selected_panel_html(part: pd.DataFrame, title: str, key: str, summary_row: 
                 _mini_kpi_card("PF", _fmt_num(summary_row.PFNet, 2)),
                 _mini_kpi_card("MDD 加總", _fmt_num(summary_row.MDDNetPointsSum, 1)),
                 _mini_kpi_card("交易日數", _fmt_int(active_days)),
+                _mini_kpi_card("明細筆數", _fmt_int(trade_count)),
                 _mini_kpi_card("最好單日", f"{_fmt_int(best_day)} 元", _cls(best_day)),
                 _mini_kpi_card("最差單日", f"{_fmt_int(worst_day)} 元", _cls(worst_day)),
                 _mini_kpi_card("做多累積", f"{_fmt_int(final_long)} 元", _cls(final_long)),
@@ -380,10 +427,10 @@ def _selected_panel_html(part: pd.DataFrame, title: str, key: str, summary_row: 
         '</table>'
         '</div>'
         '<div class="trade-detail-wrapper">'
-        '<h3>交易明細（日彙總）</h3>'
+        '<h3>逐筆交易明細</h3>'
         '<table class="trade-table">'
         '<thead><tr>'
-        '<th>#</th><th>日期</th><th>當日總損益</th><th>做多損益</th><th>做空損益</th><th>總累積</th><th>做多累積</th><th>做空累積</th>'
+        '<th>#</th><th>RunID</th><th>Anchor</th><th>前K實體</th><th>OpenGap</th><th>方向</th><th>進場時間</th><th>出場時間</th><th>進場價</th><th>出場價</th><th>原始點</th><th>淨點</th><th>淨損益</th><th>手續費</th><th>期交稅</th><th>累積損益</th>'
         '</tr></thead>'
         f'<tbody>{detail_rows}</tbody>'
         '</table>'
@@ -393,7 +440,11 @@ def _selected_panel_html(part: pd.DataFrame, title: str, key: str, summary_row: 
     )
 
 
-def _charts_html(daily: pd.DataFrame | None, total: pd.DataFrame | None = None) -> str:
+def _charts_html(
+    daily: pd.DataFrame | None,
+    total: pd.DataFrame | None = None,
+    trades: pd.DataFrame | None = None,
+) -> str:
     if daily is None or daily.empty:
         return """
 <h2>每日圖表</h2>
@@ -404,6 +455,15 @@ def _charts_html(daily: pd.DataFrame | None, total: pd.DataFrame | None = None) 
     if "Layer" not in work.columns:
         work["Layer"] = "策略層"
     work["Date"] = work["Date"].astype(int)
+    trade_groups: dict[tuple[str, int], pd.DataFrame] = {}
+    if trades is not None and not trades.empty:
+        trade_work = trades.copy()
+        if "Layer" not in trade_work.columns:
+            trade_work["Layer"] = "策略層"
+        for (layer_name, threshold_value), trade_part in trade_work.groupby(["Layer", "Threshold"], sort=False):
+            trade_groups[(str(layer_name), int(round(float(threshold_value) * 100)))] = trade_part.sort_values(
+                ["EntryTime", "ExitTime", "RuleID", "Side"]
+            )
     lookup = _summary_lookup(total)
     buttons: list[str] = []
     templates: list[str] = []
@@ -411,12 +471,14 @@ def _charts_html(daily: pd.DataFrame | None, total: pd.DataFrame | None = None) 
         part = part.sort_values("Date")
         title = f"{layer}｜{label}"
         key = _chart_key(str(layer), float(threshold))
-        summary_row = lookup.get((str(layer), int(round(float(threshold) * 100))))
+        threshold_key = int(round(float(threshold) * 100))
+        summary_row = lookup.get((str(layer), threshold_key))
+        trades_part = trade_groups.get((str(layer), threshold_key))
         buttons.append(
             f'<button type="button" class="chart-select" data-chart-key="{escape(key)}">'
             f"{escape(title)}</button>"
         )
-        templates.append(_selected_panel_html(part, title, key, summary_row))
+        templates.append(_selected_panel_html(part, title, key, summary_row, trades_part))
     return f"""
 <h2>每日圖表</h2>
 <div class="sub">點選下方門檻按鈕，或點選「總年度門檻總表」任一列，上方只會顯示目前選到的圖表。</div>
@@ -519,6 +581,7 @@ def write_html(
     description: str,
     matrix_href: str | None = None,
     daily: pd.DataFrame | None = None,
+    trades: pd.DataFrame | None = None,
 ) -> None:
     links = []
     if matrix_href:
@@ -528,6 +591,7 @@ def write_html(
             '<a href="winrate_threshold_summary.csv">總年度 CSV</a>',
             '<a href="winrate_threshold_by_year.csv">分年度 CSV</a>',
             '<a href="winrate_threshold_daily.csv">每日圖表資料 CSV</a>',
+            '<a href="winrate_threshold_trades.csv">逐筆交易 CSV</a>',
         ]
     )
     output.write_text(
@@ -578,14 +642,15 @@ tr:nth-child(even){{background:#f3f8f5}} tr:nth-child(odd){{background:#fff}}
 .kpi-table th,.kpi-table td{{padding:5px 6px;border-bottom:1px solid #eee;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
 .kpi-table th{{background:#fafafa;text-align:center}}
 .kpi-table td.num{{text-align:right;font-variant-numeric:tabular-nums}}
-.trade-detail-wrapper{{max-width:1100px;margin:8px auto 0 auto;background:#fff;border:1px solid #eee;border-radius:4px;padding:8px;max-height:360px;overflow:auto}}
+.trade-detail-wrapper{{max-width:1100px;margin:8px auto 0 auto;background:#fff;border:1px solid #eee;border-radius:4px;padding:8px;max-height:430px;overflow:auto}}
 .trade-detail-wrapper h3{{font-size:16px;margin:0 0 6px;text-align:left}}
 .trade-table{{border-collapse:collapse;width:100%;font-size:12px;background:#fff}}
 .trade-table th,.trade-table td{{padding:4px 6px;border-bottom:1px solid #eee;white-space:nowrap}}
 .trade-table th{{position:sticky;top:0;background:#fafafa;z-index:1;text-align:center}}
 .trade-table td{{text-align:right}}
-.trade-table td:nth-child(2){{text-align:center}}
+.trade-table td:nth-child(2),.trade-table td:nth-child(3),.trade-table td:nth-child(4),.trade-table td:nth-child(5),.trade-table td:nth-child(6),.trade-table td:nth-child(7),.trade-table td:nth-child(8){{text-align:center}}
 .trade-table tbody tr:nth-child(even){{background:#fcfcfc}}
+.empty-detail{{text-align:center!important;color:#777;padding:16px!important}}
 .chart-link{{cursor:pointer}}
 .chart-link:hover td{{background:#eef7f2}}
 .chart-link.active-row td{{background:#e2f0ea}}
@@ -608,7 +673,7 @@ tr:nth-child(even){{background:#f3f8f5}} tr:nth-child(odd){{background:#fff}}
 <main>
 <div class="note">門檻統計使用扣成本後勝率：小台與大台分別套用自己的本金、點值、手續費、出場 2 點滑點與期交稅。MDD 表格同時保留所有入選策略加總 MDD，以及單一策略最大 MDD。</div>
 
-{_charts_html(daily, total)}
+{_charts_html(daily, total, trades)}
 
 <h2>總年度門檻總表</h2>
 <div class="table-wrap">
@@ -652,6 +717,7 @@ def build_report(
     description: str | None = None,
     matrix_href: str | None = "anchor_body_gap_bins_report.html",
     daily_csv: Path | None = None,
+    trades_csv: Path | None = None,
 ) -> dict[str, Path]:
     cost = cost or CostConfig()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -661,7 +727,9 @@ def build_report(
     total = aggregate_total(summary, cost, layer_label)
     yearly = aggregate_by_year(summary, by_year, cost, layer_label)
     daily: pd.DataFrame | None = None
+    trades: pd.DataFrame | None = None
     daily_out = output_dir / "winrate_threshold_daily.csv"
+    trades_out = output_dir / "winrate_threshold_trades.csv"
     if daily_csv is not None and daily_csv.exists():
         daily = pd.read_csv(daily_csv)
         if "Layer" not in daily.columns:
@@ -683,6 +751,41 @@ def build_report(
             ]
         ).to_csv(daily_out, index=False, encoding="utf-8-sig")
 
+    if trades_csv is not None and trades_csv.exists():
+        trades = pd.read_csv(trades_csv)
+        if "Layer" not in trades.columns:
+            trades.insert(0, "Layer", layer_label)
+        trades.to_csv(trades_out, index=False, encoding="utf-8-sig")
+    elif not trades_out.exists():
+        pd.DataFrame(
+            columns=[
+                "Layer",
+                "Threshold",
+                "ThresholdLabel",
+                "RuleID",
+                "RunID",
+                "AnchorID",
+                "BodyBin",
+                "GapBin",
+                "Date",
+                "EntryTime",
+                "ExitTime",
+                "Side",
+                "SideLabel",
+                "EntryPrice",
+                "ExitPrice",
+                "EffectiveEntry",
+                "EffectiveExit",
+                "RawPoints",
+                "NetPoints",
+                "NetProfitTWD",
+                "FeeTWD",
+                "TaxTWD",
+                "SlippageTWD",
+                "CumNetProfitTWD",
+            ]
+        ).to_csv(trades_out, index=False, encoding="utf-8-sig")
+
     total_csv = output_dir / "winrate_threshold_summary.csv"
     yearly_csv = output_dir / "winrate_threshold_by_year.csv"
     html = output_dir / "winrate_threshold_report.html"
@@ -696,8 +799,9 @@ def build_report(
         description=description or "依照參數矩陣結果，把勝率門檻策略彙整成總年度、分年度與每日圖表。",
         matrix_href=matrix_href,
         daily=daily,
+        trades=trades,
     )
-    return {"summary": total_csv, "by_year": yearly_csv, "daily": daily_out, "html": html}
+    return {"summary": total_csv, "by_year": yearly_csv, "daily": daily_out, "trades": trades_out, "html": html}
 
 
 def main() -> None:
@@ -713,6 +817,7 @@ def main() -> None:
         default=Path("report_outputs") / "anchor_body_gap_bins_11152" / "by_year_anchor_body_gap_bins.csv",
     )
     parser.add_argument("--daily", type=Path)
+    parser.add_argument("--trades", type=Path)
     parser.add_argument(
         "--outdir",
         type=Path,
@@ -733,10 +838,12 @@ def main() -> None:
         cost=cost_for_instrument(args.instrument),
         layer_label=args.layer_label,
         daily_csv=args.daily,
+        trades_csv=args.trades,
     )
     print(f"summary={paths['summary']}")
     print(f"by_year={paths['by_year']}")
     print(f"daily={paths['daily']}")
+    print(f"trades={paths['trades']}")
     print(f"html={paths['html']}")
 
 

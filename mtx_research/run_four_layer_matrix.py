@@ -32,20 +32,21 @@ LAYERS = (
 )
 
 
-def _required_outputs(outdir: Path) -> tuple[Path, Path, Path, Path]:
+def _required_outputs(outdir: Path) -> tuple[Path, Path, Path, Path, Path]:
     return (
         outdir / "summary_anchor_body_gap_bins.csv",
         outdir / "by_year_anchor_body_gap_bins.csv",
         outdir / "winrate_threshold_daily.csv",
+        outdir / "winrate_threshold_trades.csv",
         outdir / "anchor_body_gap_bins_report.html",
     )
 
 
 def _scan_or_reuse(layer: Layer, outdir: Path, progress_every: int, skip_existing: bool) -> dict[str, Path]:
-    summary, by_year, daily, html = _required_outputs(outdir)
-    if skip_existing and summary.exists() and by_year.exists() and daily.exists() and html.exists():
+    summary, by_year, daily, trades, html = _required_outputs(outdir)
+    if skip_existing and summary.exists() and by_year.exists() and daily.exists() and trades.exists() and html.exists():
         print(f"[{layer.label}] reuse existing matrix: {outdir}")
-        return {"summary": summary, "by_year": by_year, "daily": daily, "html": html}
+        return {"summary": summary, "by_year": by_year, "daily": daily, "trades": trades, "html": html}
 
     data_path = resolve_data_path(layer.instrument)
     cost = cost_for_instrument(layer.instrument)
@@ -82,6 +83,7 @@ def _build_layer_threshold(layer: Layer, paths: dict[str, Path], outdir: Path) -
         ),
         matrix_href="anchor_body_gap_bins_report.html",
         daily_csv=paths.get("daily"),
+        trades_csv=paths.get("trades"),
     )
 
 
@@ -153,6 +155,7 @@ def run_all(
     total_parts: list[pd.DataFrame] = []
     yearly_parts: list[pd.DataFrame] = []
     daily_parts: list[pd.DataFrame] = []
+    trade_parts: list[pd.DataFrame] = []
     layer_links: list[tuple[Layer, Path, Path]] = []
 
     for layer in selected_layers:
@@ -163,18 +166,23 @@ def run_all(
         yearly_parts.append(pd.read_csv(threshold_paths["by_year"]))
         if "daily" in threshold_paths and threshold_paths["daily"].exists():
             daily_parts.append(pd.read_csv(threshold_paths["daily"]))
+        if "trades" in threshold_paths and threshold_paths["trades"].exists():
+            trade_parts.append(pd.read_csv(threshold_paths["trades"]))
         layer_links.append((layer, matrix_paths["html"], threshold_paths["html"]))
 
     total = pd.concat(total_parts, ignore_index=True)
     yearly = pd.concat(yearly_parts, ignore_index=True)
     daily = pd.concat(daily_parts, ignore_index=True) if daily_parts else pd.DataFrame()
+    trades = pd.concat(trade_parts, ignore_index=True) if trade_parts else pd.DataFrame()
     total_csv = outdir / "winrate_threshold_summary.csv"
     yearly_csv = outdir / "winrate_threshold_by_year.csv"
     daily_csv = outdir / "winrate_threshold_daily.csv"
+    trades_csv = outdir / "winrate_threshold_trades.csv"
     combined_html = outdir / "four_layer_threshold_report.html"
     total.to_csv(total_csv, index=False, encoding="utf-8-sig")
     yearly.to_csv(yearly_csv, index=False, encoding="utf-8-sig")
     daily.to_csv(daily_csv, index=False, encoding="utf-8-sig")
+    trades.to_csv(trades_csv, index=False, encoding="utf-8-sig")
     write_html(
         total,
         yearly,
@@ -186,6 +194,7 @@ def run_all(
         ),
         matrix_href=None,
         daily=daily,
+        trades=trades,
     )
     index_html = _write_index(outdir, layer_links)
     return {
@@ -194,6 +203,7 @@ def run_all(
         "summary": total_csv,
         "by_year": yearly_csv,
         "daily": daily_csv,
+        "trades": trades_csv,
     }
 
 
