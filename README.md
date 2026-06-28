@@ -1,86 +1,96 @@
 # 小台指 ROD 回踩回測報表
 
-這個專案用 Python 回測小台指 1 分 K 裸 K ROD 回踩策略，並輸出可以直接用瀏覽器開啟的 HTML 報表。
+這個專案用 Python 回測台指 / 小台指 1 分 K 裸 K ROD 回踩策略，並輸出可以直接用瀏覽器開啟的 HTML 報表。
 
-## 最新網頁報表
+## 底層資料
 
-本機雙擊：
+程式預設使用小台指全日近 6 年合併資料：
+
+```text
+C:\XQ\data\FIMTXN_1.TF_M1_FULL_MERGED_201912311500_202606261343\FIMTXN_1.TF_M1_FULL_MERGED_201912311500_202606261343.txt
+```
+
+大台指全日近 6 年合併資料可用 `--instrument tx` 指定：
+
+```text
+C:\XQ\data\FITXN_1.TF_M1_FULL_MERGED_201912311500_202606261343\FITXN_1.TF_M1_FULL_MERGED_201912311500_202606261343.txt
+```
+
+資料來源集中設定在：
+
+```text
+mtx_research/data_sources.py
+```
+
+## 開啟報表
+
+雙擊：
 
 ```bat
 run.bat
 ```
 
-或直接開啟：
+入口頁：
 
 ```text
 index.html
 ```
 
-最新報表位置：
+目前主要報表：
 
 ```text
 report_outputs/anchor_body_gap_bins_11152/anchor_body_gap_bins_report.html
 ```
 
-## 目前第 0 層測試
+## 重新產生報表
 
-總組合：
+小台指預設資料：
 
-```text
-8 種 Anchor x 41 組前 K 實體區間 x 34 組 OpenGap 區間 = 11,152 組
+```powershell
+python mtx_research/run_anchor_body_bins.py --outdir report_outputs/anchor_body_gap_bins_11152
 ```
 
-做多簡碼：
+大台指全日資料：
+
+```powershell
+python mtx_research/run_anchor_body_bins.py --instrument tx --outdir report_outputs/anchor_body_gap_bins_11152_tx
+```
+
+若要指定其他資料檔，可用 `--data` 覆蓋 `--instrument`：
+
+```powershell
+python mtx_research/run_anchor_body_bins.py --data "C:\path\your_data.txt"
+```
+
+## 第 0 層公式
+
+做多：
 
 ```text
-B=C1-O1 in 前K實體區間
-O>=A+Gap下限
-O<=A+Gap上限
-L<=A-1
-Entry=A
-Exit=NextOpen
+O >= A + GapMin
+O <= A + GapMax
+L <= A - 1
+Entry = A
+Exit = NextOpen
 ```
 
 做空鏡像：
 
 ```text
-B=O1-C1 in 前K實體區間
-O<=A-Gap下限
-O>=A-Gap上限
-H>=A+1
-Entry=A
-Exit=NextOpen
+O <= A - GapMin
+O >= A - GapMax
+H >= A + 1
+Entry = A
+Exit = NextOpen
 ```
 
 ## 成本設定
 
-- 小台指 1 點：50 元
-- 報酬率本金：250,000 元
+目前成本設定集中在 `CostConfig`：
+
+- 本金：250,000 元
+- 小台 1 點：50 元
 - 進場滑點：0 點
 - 出場滑點：2 點
-- 手續費：單邊 18 元，來回 36 元
-- 期交稅：單邊 0.00002，單邊四捨五入到元
-
-## 重跑報表
-
-把原始資料放在專案根目錄：
-
-```text
-FIMTX_M1_202001020845.txt
-```
-
-執行：
-
-```powershell
-python mtx_research/run_anchor_body_bins.py --data FIMTX_M1_202001020845.txt --outdir report_outputs/anchor_body_gap_bins_11152
-```
-
-## GitHub 同步範圍
-
-原始資料與大型中間輸出不放進 GitHub，避免超過 GitHub 單檔限制與造成 repo 過大。同步範圍包含：
-
-- Python 程式
-- `index.html`
-- `run.bat`
-- 最新 11,152 組 HTML 報表
-- 最新 summary / by_year CSV
+- 手續費：單邊 18 元，一次進出 36 元
+- 期交稅率：單邊 0.00002，並以單邊四捨五入到元計算

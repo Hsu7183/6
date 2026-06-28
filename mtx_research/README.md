@@ -1,48 +1,56 @@
 # mtx_research
 
-這個資料夾放小台指 1 分 K ROD / Trend Pullback 研究程式。
+這個資料夾放台指 / 小台指 1 分 K ROD 與 Trend Pullback 研究程式。
 
-## 目前主要報表
+## 資料來源
 
-第 0 層 Anchor x Body x OpenGap：
+所有預設底層資料集中設定在：
+
+```text
+mtx_research/data_sources.py
+```
+
+小台指預設 `--instrument mtx`：
+
+```text
+C:\XQ\data\FIMTXN_1.TF_M1_FULL_MERGED_201912311500_202606261343\FIMTXN_1.TF_M1_FULL_MERGED_201912311500_202606261343.txt
+```
+
+大台指使用 `--instrument tx`：
+
+```text
+C:\XQ\data\FITXN_1.TF_M1_FULL_MERGED_201912311500_202606261343\FITXN_1.TF_M1_FULL_MERGED_201912311500_202606261343.txt
+```
+
+## 第 0 層 Anchor x Body x OpenGap 報表
+
+小台指：
 
 ```powershell
-python mtx_research/run_anchor_body_bins.py --data "FIMTX_M1_202001020845.txt" --outdir "report_outputs/anchor_body_gap_bins_3528"
+python mtx_research/run_anchor_body_bins.py --outdir report_outputs/anchor_body_gap_bins_11152
 ```
 
-輸出：
+大台指：
 
-```text
-report_outputs/anchor_body_gap_bins_3528/anchor_body_gap_bins_report.html
-report_outputs/anchor_body_gap_bins_3528/summary_anchor_body_gap_bins.csv
-report_outputs/anchor_body_gap_bins_3528/by_year_anchor_body_gap_bins.csv
+```powershell
+python mtx_research/run_anchor_body_bins.py --instrument tx --outdir report_outputs/anchor_body_gap_bins_11152_tx
 ```
 
-## 策略簡碼
+## XS Anchor ROD 18,816 組
 
-做多：
+小台指：
 
-```text
-B=C1-O1 in 前K實體區間
-O>=A+Gap下限
-O<=A+Gap上限
-L<=A-1
-Entry=A
-Exit=NextOpen
+```powershell
+python mtx_research/run_xs_anchor_rod.py --outdir report_outputs/xs_anchor_rod_18816
 ```
 
-做空鏡像：
+大台指：
 
-```text
-B=O1-C1 in 前K實體區間
-O<=A-Gap下限
-O>=A-Gap上限
-H>=A+1
-Entry=A
-Exit=NextOpen
+```powershell
+python mtx_research/run_xs_anchor_rod.py --instrument tx --outdir report_outputs/xs_anchor_rod_18816_tx
 ```
 
-## 成本
+## 成本設定
 
 `CostConfig` 預設：
 
@@ -50,11 +58,5 @@ Exit=NextOpen
 - 小台 1 點：50 元
 - 進場滑點：0 點
 - 出場滑點：2 點
-- 來回手續費：36 元
-- 期交稅：單邊 0.00002，單邊四捨五入到元
-
-## 其他研究程式
-
-- `run_xs_anchor_rod.py`：XS Anchor ROD 18,816 組版本。
-- `run_research.py`：R2A / R2B 長時間研究流程。
-- `anchor_body_bins.py`：目前 GitHub 網頁入口使用的 3,528 組報表產生器。
+- 手續費：單邊 18 元，一次進出 36 元
+- 期交稅率：單邊 0.00002

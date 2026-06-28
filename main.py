@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from mtx_research.data_sources import MTX_FULL_DATA
 from src import config
 from src.build_samples import build_samples
 from src.load_data import load_price_data
@@ -34,6 +35,8 @@ def parse_args() -> argparse.Namespace:
 def resolve_data_path(data_arg: Path | None) -> Path:
     if data_arg is not None:
         return data_arg.resolve()
+    if MTX_FULL_DATA.path.exists():
+        return MTX_FULL_DATA.path.resolve()
     files = sorted([*config.DATA_DIR.glob("*.csv"), *config.DATA_DIR.glob("*.txt")])
     if len(files) == 1:
         return files[0].resolve()

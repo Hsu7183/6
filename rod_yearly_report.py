@@ -14,6 +14,7 @@ from typing import Iterable, Iterator
 import matplotlib.pyplot as plt
 import pandas as pd
 
+from mtx_research.data_sources import MTX_FULL_DATA
 from rod_backtest import ANCHORS, Bar, iter_bars
 
 
@@ -2095,7 +2096,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "input",
         nargs="?",
-        default="FIMTX_M1_202001020845.txt",
+        default=MTX_FULL_DATA.path,
         type=Path,
         help="Input text file with columns: timestamp open high low close volume.",
     )

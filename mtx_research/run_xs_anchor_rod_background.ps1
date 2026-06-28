@@ -3,7 +3,6 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $ProjectRoot
 
-$DataPath = Join-Path $ProjectRoot "FIMTX_M1_202001020845.txt"
 $OutDir = Join-Path $ProjectRoot "report_outputs\xs_anchor_rod_18816"
 $LogPath = Join-Path $OutDir "run_last.log"
 $HtmlPath = Join-Path $OutDir "xs_anchor_rod_report.html"
@@ -19,21 +18,17 @@ function Write-RunLog {
 Set-Content -LiteralPath $LogPath -Value "" -Encoding UTF8
 Write-RunLog "Start MTX XS Anchor ROD 18816 backtest"
 Write-RunLog "Project=$ProjectRoot"
-Write-RunLog "Data=$DataPath"
+Write-RunLog "Instrument=mtx"
 Write-RunLog "Output=$OutDir"
 
 try {
-    if (-not (Test-Path -LiteralPath $DataPath)) {
-        throw "Missing data file: $DataPath"
-    }
-
     $pyLauncher = Get-Command py -ErrorAction SilentlyContinue
     if ($pyLauncher) {
         $cmd = "py"
         $args = @(
             "-3",
             "mtx_research\run_xs_anchor_rod.py",
-            "--data", "FIMTX_M1_202001020845.txt",
+            "--instrument", "mtx",
             "--outdir", "report_outputs\xs_anchor_rod_18816",
             "--progress-every", "100000"
         )
@@ -41,7 +36,7 @@ try {
         $cmd = "python"
         $args = @(
             "mtx_research\run_xs_anchor_rod.py",
-            "--data", "FIMTX_M1_202001020845.txt",
+            "--instrument", "mtx",
             "--outdir", "report_outputs\xs_anchor_rod_18816",
             "--progress-every", "100000"
         )
