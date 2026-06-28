@@ -146,6 +146,135 @@ def aggregate_by_year(
     return pd.DataFrame(rows)
 
 
+def _date_label(value: int | float | str) -> str:
+    text = str(int(float(value)))
+    if len(text) != 8:
+        return text
+    return f"{text[:4]}-{text[4:6]}-{text[6:]}"
+
+
+def _scale_y(value: float, ymin: float, ymax: float, top: float, height: float) -> float:
+    if ymax <= ymin:
+        return top + height / 2
+    return top + (ymax - value) / (ymax - ymin) * height
+
+
+def _chart_domain(values: list[float]) -> tuple[float, float]:
+    if not values:
+        return -1.0, 1.0
+    ymin = min(values + [0.0])
+    ymax = max(values + [0.0])
+    if ymin == ymax:
+        pad = max(abs(ymin) * 0.1, 1.0)
+        return ymin - pad, ymax + pad
+    pad = (ymax - ymin) * 0.08
+    return ymin - pad, ymax + pad
+
+
+def _line_points(values: list[float], ymin: float, ymax: float, width: int, height: int) -> str:
+    left, top, chart_w, chart_h = 62, 18, width - 82, height - 58
+    if len(values) <= 1:
+        x_step = 0.0
+    else:
+        x_step = chart_w / (len(values) - 1)
+    points = []
+    for idx, value in enumerate(values):
+        x = left + idx * x_step
+        y = _scale_y(value, ymin, ymax, top, chart_h)
+        points.append(f"{x:.1f},{y:.1f}")
+    return " ".join(points)
+
+
+def _equity_svg(part: pd.DataFrame, title: str) -> str:
+    width, height = 980, 300
+    cum_net = [float(x) for x in part["CumNetTWD"]]
+    cum_long = [float(x) for x in part["CumLongTWD"]]
+    cum_short = [float(x) for x in part["CumShortTWD"]]
+    ymin, ymax = _chart_domain(cum_net + cum_long + cum_short)
+    zero_y = _scale_y(0, ymin, ymax, 18, height - 58)
+    first_date = _date_label(part["Date"].iloc[0])
+    last_date = _date_label(part["Date"].iloc[-1])
+    final_net = cum_net[-1] if cum_net else 0.0
+    return f"""
+<svg class="chart" viewBox="0 0 {width} {height}" role="img" aria-label="{escape(title)} 累積獲利折線圖">
+  <rect x="0" y="0" width="{width}" height="{height}" rx="6" fill="#ffffff"/>
+  <text x="16" y="26" class="chart-title">{escape(title)}｜累積獲利</text>
+  <text x="{width - 16}" y="26" text-anchor="end" class="chart-note">{escape(first_date)} ~ {escape(last_date)}｜總累積 {_fmt_int(final_net)} 元</text>
+  <line x1="62" x2="{width - 20}" y1="{zero_y:.1f}" y2="{zero_y:.1f}" class="axis-zero"/>
+  <text x="12" y="54" class="axis-label">{escape(_fmt_int(ymax))}</text>
+  <text x="12" y="{height - 48}" class="axis-label">{escape(_fmt_int(ymin))}</text>
+  <polyline points="{_line_points(cum_net, ymin, ymax, width, height)}" class="line-net"/>
+  <polyline points="{_line_points(cum_long, ymin, ymax, width, height)}" class="line-long"/>
+  <polyline points="{_line_points(cum_short, ymin, ymax, width, height)}" class="line-short"/>
+  <g transform="translate(62 {height - 26})">
+    <text class="legend net">總累積</text>
+    <text x="96" class="legend long">做多累積</text>
+    <text x="214" class="legend short">做空累積</text>
+  </g>
+</svg>
+"""
+
+
+def _daily_bar_svg(part: pd.DataFrame, title: str) -> str:
+    width, height = 980, 260
+    left, top, chart_w, chart_h = 62, 18, width - 82, height - 58
+    values = [float(x) for x in part["DailyNetTWD"]]
+    max_abs = max([abs(x) for x in values] + [1.0])
+    ymin, ymax = -max_abs * 1.08, max_abs * 1.08
+    zero_y = _scale_y(0, ymin, ymax, top, chart_h)
+    x_step = chart_w / max(len(values), 1)
+    stroke_w = max(0.6, min(7.0, x_step * 0.72))
+    lines = []
+    for idx, value in enumerate(values):
+        x = left + idx * x_step + x_step / 2
+        y = _scale_y(value, ymin, ymax, top, chart_h)
+        cls = "bar-pos" if value >= 0 else "bar-neg"
+        lines.append(f'<line x1="{x:.1f}" x2="{x:.1f}" y1="{zero_y:.1f}" y2="{y:.1f}" class="{cls}" stroke-width="{stroke_w:.2f}"/>')
+    best = max(values) if values else 0.0
+    worst = min(values) if values else 0.0
+    return f"""
+<svg class="chart" viewBox="0 0 {width} {height}" role="img" aria-label="{escape(title)} 每日損益柱狀圖">
+  <rect x="0" y="0" width="{width}" height="{height}" rx="6" fill="#ffffff"/>
+  <text x="16" y="26" class="chart-title">{escape(title)}｜每日損益</text>
+  <text x="{width - 16}" y="26" text-anchor="end" class="chart-note">最好 {_fmt_int(best)} 元｜最差 {_fmt_int(worst)} 元</text>
+  <line x1="{left}" x2="{left + chart_w}" y1="{zero_y:.1f}" y2="{zero_y:.1f}" class="axis-zero"/>
+  {"".join(lines)}
+</svg>
+"""
+
+
+def _charts_html(daily: pd.DataFrame | None) -> str:
+    if daily is None or daily.empty:
+        return """
+<h2>每日圖表</h2>
+<div class="note">目前沒有每日圖表資料；請重新執行矩陣掃描以產生 winrate_threshold_daily.csv。</div>
+"""
+
+    work = daily.copy()
+    if "Layer" not in work.columns:
+        work["Layer"] = "策略層"
+    work["Date"] = work["Date"].astype(int)
+    work = work.sort_values(["Layer", "Threshold", "Date"])
+    cards: list[str] = []
+    for (layer, label), part in work.groupby(["Layer", "ThresholdLabel"], sort=False):
+        part = part.sort_values("Date")
+        title = f"{layer}｜{label}"
+        cards.append(
+            "<section class=\"chart-card\">"
+            f"<h3>{escape(title)}</h3>"
+            f"{_equity_svg(part, title)}"
+            f"{_daily_bar_svg(part, title)}"
+            "</section>"
+        )
+    return f"""
+<h2>每日圖表</h2>
+<div class="sub">折線圖：總累積獲利、做多累積獲利、做空累積獲利。柱狀圖：每日損益，紅色為獲利、綠色為虧損。</div>
+<div class="chart-grid">
+{''.join(cards)}
+</div>
+"""
+
+
 def _total_rows_html(df: pd.DataFrame) -> str:
     rows: list[str] = []
     for row in df.itertuples(index=False):
@@ -201,14 +330,16 @@ def write_html(
     title: str,
     description: str,
     matrix_href: str | None = None,
+    daily: pd.DataFrame | None = None,
 ) -> None:
     links = []
     if matrix_href:
-        links.append(f'<a href="{escape(matrix_href)}">回參數矩陣</a>')
+        links.append(f'<a href="{escape(matrix_href)}">參數矩陣</a>')
     links.extend(
         [
-            '<a href="winrate_threshold_summary.csv">下載總年 CSV</a>',
-            '<a href="winrate_threshold_by_year.csv">下載分年度 CSV</a>',
+            '<a href="winrate_threshold_summary.csv">總年度 CSV</a>',
+            '<a href="winrate_threshold_by_year.csv">分年度 CSV</a>',
+            '<a href="winrate_threshold_daily.csv">每日圖表資料 CSV</a>',
         ]
     )
     output.write_text(
@@ -221,8 +352,8 @@ def write_html(
 body{{font-family:"Microsoft JhengHei",Arial,sans-serif;margin:0;background:#f6faf8;color:#1d2823;font-size:18px}}
 header{{padding:22px 10px;background:#fff;border-bottom:1px solid #dbe8e2}}
 main{{padding:0 8px 36px}}
-h1{{font-size:32px;margin:0 0 10px}} h2{{font-size:25px;margin:34px 0 10px}}
-.sub{{color:#5e6f68;line-height:1.65;max-width:1280px}}
+h1{{font-size:32px;margin:0 0 10px}} h2{{font-size:25px;margin:34px 0 10px}} h3{{font-size:21px;margin:0 0 10px}}
+.sub{{color:#5e6f68;line-height:1.65;max-width:1400px}}
 .links a{{display:inline-block;margin:10px 8px 0 0;padding:8px 12px;border:1px solid #c9d9d1;border-radius:5px;text-decoration:none;color:#255d87;background:#fff;font-weight:700}}
 .note{{background:#fff9e8;border:1px solid #ead9a3;border-radius:6px;padding:10px 12px;margin:14px 0;line-height:1.6}}
 .table-wrap{{overflow:auto;border:1px solid #dce7e1;background:#fff;box-shadow:0 10px 22px rgba(32,48,40,.06)}}
@@ -232,6 +363,17 @@ th{{background:#dfebe5;color:#1d2a25;position:sticky;top:0;z-index:1}}
 td:first-child,th:first-child{{text-align:left;position:sticky;left:0;background:inherit;z-index:2}}
 tr:nth-child(even){{background:#f3f8f5}} tr:nth-child(odd){{background:#fff}}
 .pos{{color:#bf4e3e;font-weight:700}} .neg{{color:#2f7d56;font-weight:700}} .zero{{color:#56645f}}
+.chart-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(680px,1fr));gap:14px;margin-top:12px}}
+.chart-card{{background:#fff;border:1px solid #dce7e1;border-radius:6px;padding:12px;box-shadow:0 10px 22px rgba(32,48,40,.05)}}
+.chart{{width:100%;height:auto;display:block;margin-top:8px;border:1px solid #edf3ef;border-radius:6px}}
+.chart-title{{font-size:18px;font-weight:700;fill:#1d2823}}
+.chart-note,.axis-label{{font-size:13px;fill:#6b7b74}}
+.axis-zero{{stroke:#87948f;stroke-width:1;stroke-dasharray:4 4}}
+.line-net{{fill:none;stroke:#2d5f8f;stroke-width:2.3}}
+.line-long{{fill:none;stroke:#bf4e3e;stroke-width:1.7}}
+.line-short{{fill:none;stroke:#2f7d56;stroke-width:1.7}}
+.bar-pos{{stroke:#bf4e3e}} .bar-neg{{stroke:#2f7d56}}
+.legend{{font-size:14px;font-weight:700}} .legend.net{{fill:#2d5f8f}} .legend.long{{fill:#bf4e3e}} .legend.short{{fill:#2f7d56}}
 </style>
 </head>
 <body>
@@ -241,13 +383,15 @@ tr:nth-child(even){{background:#f3f8f5}} tr:nth-child(odd){{background:#fff}}
 <div class="links">{"".join(links)}</div>
 </header>
 <main>
-<div class="note">門檻規則：50% 到 90% 使用嚴格大於；100% 使用勝率等於 100%。MDD 合計是把入選策略各自最大回撤加總，最大單策略 MDD 則是入選策略中最大的單一策略回撤。</div>
+<div class="note">門檻統計使用扣成本後勝率：小台與大台分別套用自己的本金、點值、手續費、出場 2 點滑點與期交稅。MDD 表格同時保留所有入選策略加總 MDD，以及單一策略最大 MDD。</div>
 
-<h2>總年門檻總表</h2>
+{_charts_html(daily)}
+
+<h2>總年度門檻總表</h2>
 <div class="table-wrap">
 <table>
 <thead><tr>
-<th>層次</th><th>勝率門檻</th><th>策略數</th><th>總次數</th><th>整體勝率</th><th>淨點數</th><th>淨損益</th><th>總報酬率</th><th>MDD 合計</th><th>MDD 合計率</th><th>最大單策略 MDD</th><th>最大單策略 MDD 率</th><th>PF</th>
+<th>層次</th><th>勝率門檻</th><th>參數組數</th><th>總次數</th><th>總勝率</th><th>淨點數</th><th>淨損益</th><th>總報酬率</th><th>MDD 加總</th><th>MDD 加總率</th><th>單組最大 MDD</th><th>單組最大 MDD 率</th><th>PF</th>
 </tr></thead>
 <tbody>
 {_total_rows_html(total)}
@@ -259,7 +403,7 @@ tr:nth-child(even){{background:#f3f8f5}} tr:nth-child(odd){{background:#fff}}
 <div class="table-wrap">
 <table>
 <thead><tr>
-<th>層次</th><th>勝率門檻</th><th>年度</th><th>策略數</th><th>該年有交易策略數</th><th>總次數</th><th>整體勝率</th><th>淨點數</th><th>淨損益</th><th>總報酬率</th><th>MDD 合計</th><th>MDD 合計率</th><th>最大單策略 MDD</th><th>最大單策略 MDD 率</th>
+<th>層次</th><th>勝率門檻</th><th>年度</th><th>參數組數</th><th>有交易組數</th><th>總次數</th><th>勝率</th><th>淨點數</th><th>淨損益</th><th>報酬率</th><th>MDD 加總</th><th>MDD 加總率</th><th>單組最大 MDD</th><th>單組最大 MDD 率</th>
 </tr></thead>
 <tbody>
 {_year_rows_html(yearly)}
@@ -280,10 +424,11 @@ def build_report(
     output_dir: Path,
     *,
     cost: CostConfig | None = None,
-    layer_label: str = "單一層次",
+    layer_label: str = "策略層",
     title: str | None = None,
     description: str | None = None,
     matrix_href: str | None = "anchor_body_gap_bins_report.html",
+    daily_csv: Path | None = None,
 ) -> dict[str, Path]:
     cost = cost or CostConfig()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -292,6 +437,28 @@ def build_report(
 
     total = aggregate_total(summary, cost, layer_label)
     yearly = aggregate_by_year(summary, by_year, cost, layer_label)
+    daily: pd.DataFrame | None = None
+    daily_out = output_dir / "winrate_threshold_daily.csv"
+    if daily_csv is not None and daily_csv.exists():
+        daily = pd.read_csv(daily_csv)
+        if "Layer" not in daily.columns:
+            daily.insert(0, "Layer", layer_label)
+        daily.to_csv(daily_out, index=False, encoding="utf-8-sig")
+    elif not daily_out.exists():
+        pd.DataFrame(
+            columns=[
+                "Layer",
+                "Threshold",
+                "ThresholdLabel",
+                "Date",
+                "DailyNetTWD",
+                "DailyLongTWD",
+                "DailyShortTWD",
+                "CumNetTWD",
+                "CumLongTWD",
+                "CumShortTWD",
+            ]
+        ).to_csv(daily_out, index=False, encoding="utf-8-sig")
 
     total_csv = output_dir / "winrate_threshold_summary.csv"
     yearly_csv = output_dir / "winrate_threshold_by_year.csv"
@@ -303,10 +470,11 @@ def build_report(
         yearly,
         html,
         title=title or f"{layer_label} 勝率門檻總表",
-        description=description or "依參數矩陣總年勝率篩選策略後，彙總總年與分年度績效。",
+        description=description or "依照參數矩陣結果，把勝率門檻策略彙整成總年度、分年度與每日圖表。",
         matrix_href=matrix_href,
+        daily=daily,
     )
-    return {"summary": total_csv, "by_year": yearly_csv, "html": html}
+    return {"summary": total_csv, "by_year": yearly_csv, "daily": daily_out, "html": html}
 
 
 def main() -> None:
@@ -321,6 +489,7 @@ def main() -> None:
         type=Path,
         default=Path("report_outputs") / "anchor_body_gap_bins_11152" / "by_year_anchor_body_gap_bins.csv",
     )
+    parser.add_argument("--daily", type=Path)
     parser.add_argument(
         "--outdir",
         type=Path,
@@ -332,7 +501,7 @@ def main() -> None:
         default=DEFAULT_INSTRUMENT,
         help="Use the matching point value, fee, slippage, and tax settings.",
     )
-    parser.add_argument("--layer-label", default="單一層次")
+    parser.add_argument("--layer-label", default="策略層")
     args = parser.parse_args()
     paths = build_report(
         args.summary,
@@ -340,9 +509,11 @@ def main() -> None:
         args.outdir,
         cost=cost_for_instrument(args.instrument),
         layer_label=args.layer_label,
+        daily_csv=args.daily,
     )
     print(f"summary={paths['summary']}")
     print(f"by_year={paths['by_year']}")
+    print(f"daily={paths['daily']}")
     print(f"html={paths['html']}")
 
 

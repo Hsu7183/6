@@ -325,6 +325,7 @@ def _prepare_samples(df: pd.DataFrame, params: XSParams) -> pd.DataFrame:
             "EntryIndex": work.index.to_numpy()[mask.to_numpy()],
             "ExitIndex": work.index.to_numpy()[mask.to_numpy()] + 1,
             "DateTime": work.loc[mask, "datetime"].to_numpy(),
+            "DateInt": work.loc[mask, "DateInt"].to_numpy(dtype=np.int32),
             "NextDateTime": nxt.loc[mask, "datetime"].to_numpy(),
             "Year": work.loc[mask, "Year"].to_numpy(dtype=np.int16),
             "EntryRawIndex": work.index.to_numpy()[mask.to_numpy()],

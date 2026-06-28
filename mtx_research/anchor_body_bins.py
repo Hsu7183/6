@@ -16,6 +16,7 @@ from .xs_anchor_rod import XSParams, _anchor_values, _int_anchor_values, _prepar
 STRATEGY_ID = "A01_A08_BODY_GAP_BIN_ROD_P1"
 ANCHOR_MODES = list(range(1, 9))
 PENETRATE = 1
+WINRATE_THRESHOLDS = (0.50, 0.60, 0.70, 0.80, 0.90, 1.00)
 
 # 前 K 實體區間：0~10, 11~20, ... 391~400, 401以上，共 41 組。
 BODY_BINS: list[tuple[int, int | None]] = (
@@ -66,6 +67,24 @@ ANCHOR_SHORT_FORMULAS = {
 }
 
 
+def _coord_rule_id(coord: tuple[int, int, int]) -> int:
+    anchor_i, body_i, gap_i = coord
+    return anchor_i * len(BODY_BINS) * len(GAP_BINS) + body_i * len(GAP_BINS) + gap_i + 1
+
+
+def _threshold_label(threshold: float) -> str:
+    if threshold >= 1.0:
+        return "勝率 = 100%"
+    return f"勝率 > {int(threshold * 100)}%"
+
+
+def _select_by_threshold(summary: pd.DataFrame, threshold: float) -> pd.DataFrame:
+    valid = summary["TotalTrades"] > 0
+    if threshold >= 1.0:
+        return summary[valid & (summary["WinRate"] >= 1.0 - 1e-12)].copy()
+    return summary[valid & (summary["WinRate"] > threshold)].copy()
+
+
 @dataclass
 class BodyGapStats:
     shape: tuple[int, int, int]
@@ -99,6 +118,7 @@ class BodyGapStats:
         self.year_equity = np.zeros(year_shape, dtype=np.float64)
         self.year_peak = np.zeros(year_shape, dtype=np.float64)
         self.year_mdd = np.zeros(year_shape, dtype=np.float64)
+        self.daily_net_twd: dict[tuple[int, int, int], float] = {}
 
     def add_trigger(self, mask: np.ndarray) -> None:
         if mask.any():
@@ -118,6 +138,8 @@ class BodyGapStats:
         tax_twd: int,
         slippage_twd: float,
         year_index: int,
+        date_int: int | None = None,
+        net_profit_twd: float | None = None,
     ) -> None:
         if not mask.any():
             return
@@ -173,6 +195,8 @@ class BodyGapStats:
         tax_twd: int,
         slippage_twd: float,
         year_index: int,
+        date_int: int | None = None,
+        net_profit_twd: float | None = None,
     ) -> None:
         self.trades[coord] += 1
         if side == 1:
@@ -213,6 +237,10 @@ class BodyGapStats:
             self.year_gl_abs[year_index][coord] += loss
         else:
             self.flats[coord] += 1
+
+        if date_int is not None and net_profit_twd is not None:
+            key = (_coord_rule_id(coord), int(date_int), int(side))
+            self.daily_net_twd[key] = self.daily_net_twd.get(key, 0.0) + float(net_profit_twd)
 
 
 def _range_labels(bins: list[tuple[int, int | None]]) -> list[str]:
@@ -339,6 +367,8 @@ def scan(
                     tax_twd=trade.tax_twd,
                     slippage_twd=trade.slippage_twd,
                     year_index=year_index,
+                    date_int=int(row.DateInt),
+                    net_profit_twd=trade.net_profit_twd,
                 )
                 last_entry_raw_index[coord] = raw_index
                 pending_raw_index[coord] = -1
@@ -358,6 +388,8 @@ def scan(
                     tax_twd=trade.tax_twd,
                     slippage_twd=trade.slippage_twd,
                     year_index=year_index,
+                    date_int=int(row.DateInt),
+                    net_profit_twd=trade.net_profit_twd,
                 )
                 last_entry_raw_index[coord] = raw_index
                 pending_raw_index[coord] = -1
@@ -369,13 +401,16 @@ def scan(
     print(f"Anchor body-gap progress: {len(samples):,}/{len(samples):,}")
 
     summary, by_year = _flatten(stats, years, cost)
+    threshold_daily = _threshold_daily(summary, stats.daily_net_twd)
     summary_path = outdir / "summary_anchor_body_gap_bins.csv"
     by_year_path = outdir / "by_year_anchor_body_gap_bins.csv"
+    daily_path = outdir / "winrate_threshold_daily.csv"
     html_path = outdir / "anchor_body_gap_bins_report.html"
     summary.to_csv(summary_path, index=False, encoding="utf-8-sig")
     by_year.to_csv(by_year_path, index=False, encoding="utf-8-sig")
+    threshold_daily.to_csv(daily_path, index=False, encoding="utf-8-sig")
     write_html(summary, by_year, html_path, data_report=data_report, cost=cost)
-    return {"summary": summary_path, "by_year": by_year_path, "html": html_path}
+    return {"summary": summary_path, "by_year": by_year_path, "daily": daily_path, "html": html_path}
 
 
 def _flatten(
@@ -466,6 +501,74 @@ def _flatten(
 
     by_year = pd.concat(by_parts, ignore_index=True)
     return rows, by_year
+
+
+def _threshold_daily(
+    summary: pd.DataFrame,
+    daily_net_twd: dict[tuple[int, int, int], float],
+) -> pd.DataFrame:
+    columns = [
+        "Threshold",
+        "ThresholdLabel",
+        "Date",
+        "DailyNetTWD",
+        "DailyLongTWD",
+        "DailyShortTWD",
+        "CumNetTWD",
+        "CumLongTWD",
+        "CumShortTWD",
+    ]
+    if not daily_net_twd:
+        return pd.DataFrame(columns=columns)
+
+    daily = pd.DataFrame(
+        [
+            {
+                "RuleID": rule_id,
+                "Date": date_int,
+                "Side": side,
+                "NetProfitTWD": net,
+            }
+            for (rule_id, date_int, side), net in daily_net_twd.items()
+        ]
+    )
+
+    parts: list[pd.DataFrame] = []
+    for threshold in WINRATE_THRESHOLDS:
+        selected = _select_by_threshold(summary, threshold)
+        if selected.empty:
+            continue
+        selected_ids = set(int(rule_id) for rule_id in selected["RuleID"])
+        part = daily[daily["RuleID"].isin(selected_ids)]
+        if part.empty:
+            continue
+        grouped = (
+            part.pivot_table(
+                index="Date",
+                columns="Side",
+                values="NetProfitTWD",
+                aggfunc="sum",
+                fill_value=0.0,
+            )
+            .rename(columns={1: "DailyLongTWD", -1: "DailyShortTWD"})
+            .reset_index()
+        )
+        if "DailyLongTWD" not in grouped.columns:
+            grouped["DailyLongTWD"] = 0.0
+        if "DailyShortTWD" not in grouped.columns:
+            grouped["DailyShortTWD"] = 0.0
+        grouped = grouped[["Date", "DailyLongTWD", "DailyShortTWD"]].sort_values("Date")
+        grouped["DailyNetTWD"] = grouped["DailyLongTWD"] + grouped["DailyShortTWD"]
+        grouped["CumNetTWD"] = grouped["DailyNetTWD"].cumsum()
+        grouped["CumLongTWD"] = grouped["DailyLongTWD"].cumsum()
+        grouped["CumShortTWD"] = grouped["DailyShortTWD"].cumsum()
+        grouped.insert(0, "ThresholdLabel", _threshold_label(threshold))
+        grouped.insert(0, "Threshold", threshold)
+        parts.append(grouped[columns])
+
+    if not parts:
+        return pd.DataFrame(columns=columns)
+    return pd.concat(parts, ignore_index=True)
 
 
 def write_html(

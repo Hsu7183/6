@@ -32,19 +32,20 @@ LAYERS = (
 )
 
 
-def _required_outputs(outdir: Path) -> tuple[Path, Path, Path]:
+def _required_outputs(outdir: Path) -> tuple[Path, Path, Path, Path]:
     return (
         outdir / "summary_anchor_body_gap_bins.csv",
         outdir / "by_year_anchor_body_gap_bins.csv",
+        outdir / "winrate_threshold_daily.csv",
         outdir / "anchor_body_gap_bins_report.html",
     )
 
 
 def _scan_or_reuse(layer: Layer, outdir: Path, progress_every: int, skip_existing: bool) -> dict[str, Path]:
-    summary, by_year, html = _required_outputs(outdir)
-    if skip_existing and summary.exists() and by_year.exists() and html.exists():
+    summary, by_year, daily, html = _required_outputs(outdir)
+    if skip_existing and summary.exists() and by_year.exists() and daily.exists() and html.exists():
         print(f"[{layer.label}] reuse existing matrix: {outdir}")
-        return {"summary": summary, "by_year": by_year, "html": html}
+        return {"summary": summary, "by_year": by_year, "daily": daily, "html": html}
 
     data_path = resolve_data_path(layer.instrument)
     cost = cost_for_instrument(layer.instrument)
@@ -59,7 +60,8 @@ def _scan_or_reuse(layer: Layer, outdir: Path, progress_every: int, skip_existin
         f"fee_per_side={cost.fee_per_side_twd}, "
         f"entry_slippage={cost.entry_slippage_points}, "
         f"exit_slippage={cost.exit_slippage_points}, "
-        f"tax_rate={cost.tax_rate}"
+        f"tax_rate={cost.tax_rate}, "
+        f"capital={cost.capital_twd}"
     )
     print(f"outdir={outdir}")
     return scan(data_path, outdir, params=session.params, cost=cost, progress_every=progress_every)
@@ -75,9 +77,11 @@ def _build_layer_threshold(layer: Layer, paths: dict[str, Path], outdir: Path) -
         layer_label=layer.label,
         title=f"{layer.label} 勝率門檻總表",
         description=(
-            f"{layer.label}：{EXPECTED_COMBOS:,} 組參數矩陣，依總年勝率篩選 >50%、>60%、>70%、>80%、>90%、=100% 的策略。"
+            f"{layer.label}：{EXPECTED_COMBOS:,} 組參數矩陣。"
+            "彙整勝率 >50%、>60%、>70%、>80%、>90%、=100% 的總年度、分年度與每日損益圖表。"
         ),
         matrix_href="anchor_body_gap_bins_report.html",
+        daily_csv=paths.get("daily"),
     )
 
 
@@ -99,7 +103,7 @@ def _write_index(root: Path, layer_outputs: list[tuple[Layer, Path, Path]]) -> P
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<title>四層策略參數矩陣入口</title>
+<title>四層策略矩陣索引</title>
 <style>
 body{{font-family:"Microsoft JhengHei",Arial,sans-serif;margin:0;background:#f6faf8;color:#1d2823;font-size:18px}}
 header{{padding:22px 10px;background:#fff;border-bottom:1px solid #dbe8e2}}
@@ -114,11 +118,11 @@ a{{color:#255d87;font-weight:700;text-decoration:none}}
 </head>
 <body>
 <header>
-<h1>四層策略參數矩陣入口</h1>
-<div class="sub">小台日盤、小台全日、大台日盤、大台全日。每層都有參數矩陣與勝率門檻總表。</div>
+<h1>四層策略矩陣索引</h1>
+<div class="sub">小台日盤、小台全日、大台日盤、大台全日。每層都有參數矩陣與勝率門檻總表；勝率門檻總表已包含每日折線圖與柱狀圖。</div>
 </header>
 <main>
-<p><a href="four_layer_threshold_report.html">開啟四層合併勝率門檻總表</a></p>
+<p><a href="four_layer_threshold_report.html">合併四層勝率門檻總表</a></p>
 <table>
 <thead><tr><th>層次</th><th>商品</th><th>時段</th><th>參數矩陣</th><th>勝率門檻總表</th></tr></thead>
 <tbody>
@@ -148,6 +152,7 @@ def run_all(
 
     total_parts: list[pd.DataFrame] = []
     yearly_parts: list[pd.DataFrame] = []
+    daily_parts: list[pd.DataFrame] = []
     layer_links: list[tuple[Layer, Path, Path]] = []
 
     for layer in selected_layers:
@@ -156,15 +161,20 @@ def run_all(
         threshold_paths = _build_layer_threshold(layer, matrix_paths, layer_outdir)
         total_parts.append(pd.read_csv(threshold_paths["summary"]))
         yearly_parts.append(pd.read_csv(threshold_paths["by_year"]))
+        if "daily" in threshold_paths and threshold_paths["daily"].exists():
+            daily_parts.append(pd.read_csv(threshold_paths["daily"]))
         layer_links.append((layer, matrix_paths["html"], threshold_paths["html"]))
 
     total = pd.concat(total_parts, ignore_index=True)
     yearly = pd.concat(yearly_parts, ignore_index=True)
+    daily = pd.concat(daily_parts, ignore_index=True) if daily_parts else pd.DataFrame()
     total_csv = outdir / "winrate_threshold_summary.csv"
     yearly_csv = outdir / "winrate_threshold_by_year.csv"
+    daily_csv = outdir / "winrate_threshold_daily.csv"
     combined_html = outdir / "four_layer_threshold_report.html"
     total.to_csv(total_csv, index=False, encoding="utf-8-sig")
     yearly.to_csv(yearly_csv, index=False, encoding="utf-8-sig")
+    daily.to_csv(daily_csv, index=False, encoding="utf-8-sig")
     write_html(
         total,
         yearly,
@@ -172,9 +182,10 @@ def run_all(
         title="四層勝率門檻總表",
         description=(
             "合併小台日盤、小台全日、大台日盤、大台全日。"
-            "每層先跑同一套 11,152 組參數矩陣，再依總年勝率門檻彙總總年與分年度績效。"
+            f"每層各自掃描 {EXPECTED_COMBOS:,} 組參數矩陣，彙整勝率門檻策略的總年度、分年度與每日損益圖表。"
         ),
         matrix_href=None,
+        daily=daily,
     )
     index_html = _write_index(outdir, layer_links)
     return {
@@ -182,6 +193,7 @@ def run_all(
         "combined_html": combined_html,
         "summary": total_csv,
         "by_year": yearly_csv,
+        "daily": daily_csv,
     }
 
 

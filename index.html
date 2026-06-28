@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>小台指 / 大台指 ROD 回測報表</title>
+  <title>小台／大台 1 分 K ROD 策略研究入口</title>
   <style>
     :root {
       color-scheme: light;
@@ -15,7 +15,6 @@
       --accent: #2f668a;
       --accent-soft: #eaf3f8;
     }
-
     body {
       margin: 0;
       background: var(--bg);
@@ -24,29 +23,24 @@
       font-size: 18px;
       line-height: 1.6;
     }
-
     main {
       max-width: 1180px;
       margin: 0 auto;
       padding: 40px 20px;
     }
-
     h1 {
       font-size: 34px;
       line-height: 1.25;
       margin: 0 0 12px;
     }
-
     h2 {
       font-size: 25px;
       margin: 0 0 10px;
     }
-
     p {
       color: var(--muted);
       margin: 0 0 18px;
     }
-
     .panel {
       background: var(--panel);
       border: 1px solid var(--line);
@@ -54,14 +48,12 @@
       padding: 22px;
       margin-top: 22px;
     }
-
     .actions {
       display: flex;
       flex-wrap: wrap;
       gap: 12px;
       margin-top: 18px;
     }
-
     a.button {
       display: inline-flex;
       align-items: center;
@@ -74,37 +66,31 @@
       text-decoration: none;
       font-weight: 800;
     }
-
     a.secondary {
       background: var(--accent-soft);
       color: var(--accent);
     }
-
     .grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 12px;
       margin-top: 18px;
     }
-
     .metric {
       border: 1px solid var(--line);
       border-radius: 6px;
       padding: 12px;
       background: #fbfdfc;
     }
-
     .label {
       color: var(--muted);
       font-size: 14px;
     }
-
     .value {
       font-size: 20px;
       font-weight: 800;
       margin-top: 4px;
     }
-
     code {
       background: #edf5f1;
       border-radius: 4px;
@@ -112,7 +98,6 @@
       font-family: Consolas, monospace;
       font-size: 0.92em;
     }
-
     @media (max-width: 820px) {
       body { font-size: 16px; }
       h1 { font-size: 28px; }
@@ -122,46 +107,36 @@
 </head>
 <body>
 <main>
-  <h1>小台指 / 大台指 1 分 K ROD 回踩回測報表</h1>
-  <p>目前主報表是 A01~A08 定錨、第 0 層前 K 實體區間 x OpenGap 區間矩陣。小台本金 25 萬、50 元/點、單邊手續費 18 元、出場滑點 2 點；大台本金 100 萬、200 元/點、單邊手續費 35 元、出場滑點 2 點；兩者都扣期交稅。</p>
+  <h1>小台／大台 1 分 K ROD 策略研究入口</h1>
+  <p>目前主報表使用近 6 年全日底層資料，分成小台日盤、小台全日、大台日盤、大台全日四層；績效已扣出場 2 點滑點、手續費與期交稅。</p>
 
   <section class="panel">
-    <h2>四層策略參數矩陣</h2>
-    <p>小台日盤、小台全日、大台日盤、大台全日各自跑完整 11,152 組矩陣，並彙總勝率 >50%、>60%、>70%、>80%、>90%、=100% 的總年與分年度績效。</p>
+    <h2>四層策略矩陣</h2>
+    <p>每層掃描 11,152 組參數，並彙整勝率 &gt;50%、&gt;60%、&gt;70%、&gt;80%、&gt;90%、=100% 的總年度、分年度，以及每日損益圖表。</p>
     <div class="actions">
-      <a class="button" href="report_outputs/four_layer_matrix/four_layer_matrix_index.html">開啟四層矩陣入口</a>
-      <a class="button" href="report_outputs/four_layer_matrix/four_layer_threshold_report.html">開啟四層勝率門檻總表</a>
-      <a class="button secondary" href="report_outputs/four_layer_matrix/winrate_threshold_summary.csv">下載四層總年 CSV</a>
-      <a class="button secondary" href="report_outputs/four_layer_matrix/winrate_threshold_by_year.csv">下載四層分年度 CSV</a>
-    </div>
-  </section>
-
-  <section class="panel">
-    <h2>原本單層報表</h2>
-    <p>保留原本的單層 11,152 組總表與勝率門檻彙總，方便和新四層報表對照。</p>
-    <div class="actions">
-      <a class="button" href="report_outputs/anchor_body_gap_bins_11152/anchor_body_gap_bins_report.html">開啟 11,152 組 HTML 報表</a>
-      <a class="button" href="report_outputs/anchor_body_gap_bins_11152/winrate_threshold_report.html">開啟勝率門檻總表</a>
-      <a class="button secondary" href="report_outputs/anchor_body_gap_bins_11152/summary_anchor_body_gap_bins.csv">下載 Summary CSV</a>
-      <a class="button secondary" href="report_outputs/anchor_body_gap_bins_11152/by_year_anchor_body_gap_bins.csv">下載 By Year CSV</a>
+      <a class="button" href="report_outputs/four_layer_matrix/four_layer_threshold_report.html">開啟四層圖表總表</a>
+      <a class="button" href="report_outputs/four_layer_matrix/four_layer_matrix_index.html">開啟四層索引</a>
+      <a class="button secondary" href="report_outputs/four_layer_matrix/winrate_threshold_summary.csv">總年度 CSV</a>
+      <a class="button secondary" href="report_outputs/four_layer_matrix/winrate_threshold_by_year.csv">分年度 CSV</a>
+      <a class="button secondary" href="report_outputs/four_layer_matrix/winrate_threshold_daily.csv">每日圖表 CSV</a>
     </div>
   </section>
 
   <section class="panel">
     <h2>策略公式簡碼</h2>
-    <p>做多：<code>B=C1-O1 in 前K實體區間; O&gt;=A+Gap下限; O&lt;=A+Gap上限; L&lt;=A-1; Entry=A; Exit=NextOpen</code></p>
-    <p>做空鏡像：<code>B=O1-C1 in 前K實體區間; O&lt;=A-Gap下限; O&gt;=A-Gap上限; H&gt;=A+1; Entry=A; Exit=NextOpen</code></p>
+    <p>做多：<code>O0 &gt;= A + GapMin and O0 &lt;= A + GapMax and L0 &lt;= A - 1</code>，成交價 <code>A</code>，下一根 Open 出場。</p>
+    <p>做空鏡像：<code>O0 &lt;= A - GapMin and O0 &gt;= A - GapMax and H0 &gt;= A + 1</code>，成交價 <code>A</code>，下一根 Open 出場。</p>
     <div class="grid">
-      <div class="metric"><div class="label">Anchor</div><div class="value">8 種</div></div>
-      <div class="metric"><div class="label">前 K 實體</div><div class="value">41 組</div></div>
-      <div class="metric"><div class="label">OpenGap</div><div class="value">34 組</div></div>
+      <div class="metric"><div class="label">Anchor 定錨</div><div class="value">A01~A08</div></div>
+      <div class="metric"><div class="label">前 K 實體區間</div><div class="value">41 組</div></div>
+      <div class="metric"><div class="label">OpenGap 區間</div><div class="value">34 組</div></div>
       <div class="metric"><div class="label">每層組合</div><div class="value">11,152 組</div></div>
     </div>
   </section>
 
   <section class="panel">
-    <h2>本機執行</h2>
-    <p>雙擊根目錄的 <code>run.bat</code> 會直接開啟本頁。若要重跑四層報表，可在專案根目錄執行：</p>
+    <h2>重新產生報表</h2>
+    <p>需要更新資料時，雙擊 <code>run.bat</code> 會開啟這個入口頁；若要重跑矩陣，請在專案資料夾執行：</p>
     <p><code>python mtx_research/run_four_layer_matrix.py --outdir report_outputs/four_layer_matrix --progress-every 200000</code></p>
   </section>
 </main>
